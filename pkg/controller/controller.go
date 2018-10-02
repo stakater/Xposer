@@ -190,57 +190,54 @@ func objectCreated(obj interface{}, c *Controller) {
 	// e.g If want to check on APIVersion uncomment this.
 	// if obj.(*v1.Pod).APIVersion == "samplecontroller.k8s.io/v1alpha1" {
 
-	fmt.Println("\nService Created Event")
-	fmt.Println("Name: ", obj.(*v1.Service).Name)
-	fmt.Println("First Annotation: ", obj.(*v1.Service).ObjectMeta.Annotations["firstAnnotation"])
-	fmt.Println("Second Annotation: ", strings.Split(obj.(*v1.Service).ObjectMeta.Annotations["exposecontroller.stakater.com/annotations"], "\n"))
-	fmt.Println("Label 1: ", obj.(*v1.Service).ObjectMeta.Labels["k8sapp"])
-	fmt.Println("Label Expose: ", obj.(*v1.Service).ObjectMeta.Labels["expose"])
-	fmt.Println("Selector: ", obj.(*v1.Service).Spec.Ports[0].Port)
-	fmt.Println("Printing annotations")
+	// fmt.Println("\nService Created Event")
+	// fmt.Println("Name: ", obj.(*v1.Service).Name)
+	// fmt.Println("First Annotation: ", obj.(*v1.Service).ObjectMeta.Annotations["firstAnnotation"])
+	// fmt.Println("Second Annotation: ", strings.Split(obj.(*v1.Service).ObjectMeta.Annotations["xposer.stakater.com/annotations"], "\n"))
+	// fmt.Println("Label 1: ", obj.(*v1.Service).ObjectMeta.Labels["k8sapp"])
+	// fmt.Println("Label Expose: ", obj.(*v1.Service).ObjectMeta.Labels["expose"])
+	// fmt.Println("Selector: ", obj.(*v1.Service).Spec.Ports[0].Port)
+	// fmt.Println("Printing annotations")
 
-	splittedAnnotations := strings.Split(string(obj.(*v1.Service).ObjectMeta.Annotations["exposecontroller.stakater.com/annotations"]), "\n")
+	splittedAnnotations := strings.Split(string(obj.(*v1.Service).ObjectMeta.Annotations["xposer.stakater.com/annotations"]), "\n")
 	fmt.Println("Splitted Annotations length: ", len(splittedAnnotations))
 
-	var annotationsMap = make(map[string]string)
-	var ingressURLTemplate = ""
-	var ingressNameTemplate = ""
-
+	forwardAnnotationsMap := make(map[string]string)
 	ingressConfig := structs.Map(c.config)
 
 	for annotationKey, annotationValue := range obj.(*v1.Service).ObjectMeta.Annotations {
-		if strings.HasPrefix(annotationKey, "config.exposecontroller.stakater.com/") {
+		if strings.HasPrefix(annotationKey, "config.xposer.stakater.com/") {
 			ingressConfig[strings.SplitN(annotationKey, "/", 2)[1]] = annotationValue
 		}
 	}
 
-	fmt.Println("Ingress Config: ", ingressConfig)
+	// Adds "/" in URL Path, if user has entered path annotaion without "/"
+	if !strings.HasPrefix(ingressConfig["IngressURLPath"].(string), "/") {
+		ingressConfig["IngressURLPath"] = "/" + ingressConfig["IngressURLPath"].(string)
+	}
 
-	for _, element := range splittedAnnotations {
-		fmt.Println("Annotation-split: ", element)
-		singleAnnotation := strings.Split(element, ":")
-		fmt.Println("Single annotation size: ", len(singleAnnotation))
-		if len(singleAnnotation) == 2 {
-			annotationsMap[singleAnnotation[0]] = singleAnnotation[1]
-			if singleAnnotation[0] == "ingressurltemplate" {
-				ingressURLTemplate = singleAnnotation[1]
-			}
-			if singleAnnotation[0] == "ingressnametemplate" {
-				ingressNameTemplate = singleAnnotation[1]
-			}
+	/*
+		Removes the content after "/" from URL-Template, and if user has not specified path from annotation,
+		use the content after "/" as URL-Path
+	*/
+	if strings.Contains(ingressConfig["IngressURLTemplate"].(string), "/") {
+		fmt.Println("Contains slash")
+		splittedURLTemplate := strings.SplitN(ingressConfig["IngressURLTemplate"].(string), "/", 2)
+		ingressConfig["IngressURLTemplate"] = splittedURLTemplate[0]
+
+		if ingressConfig["IngressURLPath"].(string) == "/" {
+			ingressConfig["IngressURLPath"] = ingressConfig["IngressURLPath"].(string) + splittedURLTemplate[1]
 		}
 	}
 
-	if ingressURLTemplate == "" {
-		ingressURLTemplate = c.config.IngressURLTemplate
+	for _, annotation := range splittedAnnotations {
+		fmt.Println("Annotation-split: ", annotation)
+		parsedAnnotation := strings.Split(annotation, ":")
+		if len(parsedAnnotation) != 2 {
+			// throw error
+		}
+		forwardAnnotationsMap[parsedAnnotation[0]] = parsedAnnotation[1]
 	}
-
-	if ingressNameTemplate == "" {
-		ingressNameTemplate = c.config.IngressNameTemplate
-	}
-
-	fmt.Println("Ingress URL Template: ", ingressURLTemplate)
-	fmt.Println("Ingress Name Template: ", ingressNameTemplate)
 
 	type URLTemplate struct {
 		Service   string
@@ -250,14 +247,15 @@ func objectCreated(obj interface{}, c *Controller) {
 
 	var tmpURLBuffer bytes.Buffer
 	var tmpNameBuffer bytes.Buffer
+	var tmpPathBuffer bytes.Buffer
 
 	urlTemplate := &URLTemplate{
 		Service:   obj.(*v1.Service).Name,
 		Namespace: "first-controller",
-		Domain:    c.config.Domain,
+		Domain:    ingressConfig["Domain"].(string),
 	}
 
-	tmplURL, err := template.New("ingressURLTemplate").Parse(ingressURLTemplate)
+	tmplURL, err := template.New("ingressURLTemplate").Parse(ingressConfig["IngressURLTemplate"].(string))
 	if err != nil {
 		panic(err)
 	}
@@ -266,20 +264,23 @@ func objectCreated(obj interface{}, c *Controller) {
 		panic(err)
 	}
 
-	tmplName, err := template.New("ingressNameTemplate").Parse(ingressNameTemplate)
+	tmplName, err := template.New("ingressNameTemplate").Parse(ingressConfig["IngressNameTemplate"].(string))
 	if err != nil {
 		panic(err)
 	}
 	err = tmplName.Execute(&tmpNameBuffer, urlTemplate)
 
-	fmt.Println("URL-Template: ", tmpURLBuffer.String())
-	fmt.Println("Name-Template: ", tmpNameBuffer.String())
+	tmplPath, err := template.New("ingressPathTemplate").Parse(ingressConfig["IngressURLPath"].(string))
+	if err != nil {
+		panic(err)
+	}
+	err = tmplPath.Execute(&tmpPathBuffer, urlTemplate)
 
 	ingress := &v1beta1.Ingress{
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name:        obj.(*v1.Service).Name,
+			Name:        tmpNameBuffer.String(),
 			Namespace:   c.namespace,
-			Annotations: annotationsMap,
+			Annotations: forwardAnnotationsMap,
 		},
 		Spec: v1beta1.IngressSpec{
 			Backend: &v1beta1.IngressBackend{
@@ -288,13 +289,25 @@ func objectCreated(obj interface{}, c *Controller) {
 			},
 			Rules: []v1beta1.IngressRule{
 				v1beta1.IngressRule{
-					Host: "stakater.com",
+					Host: tmpURLBuffer.String(),
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								v1beta1.HTTPIngressPath{
+									Path: tmpPathBuffer.String(),
+									Backend: v1beta1.IngressBackend{
+										ServiceName: obj.(*v1.Service).Name,
+										ServicePort: intstr.FromInt(int(obj.(*v1.Service).Spec.Ports[0].Port)),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 	}
 
-	fmt.Println("Creating Ingress")
 	result, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Create(ingress)
 	if err != nil {
 		fmt.Println(err)
@@ -309,8 +322,20 @@ func objectUpdated(obj interface{}, c *Controller) {
 }
 func objectDeleted(serviceName string, c *Controller) {
 	fmt.Println("\nService Deleted Event")
+	fmt.Println("Service Name: ", serviceName)
 	//	result, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Get(serviceName, meta_v1.GetOptions{})
+	ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").List(meta_v1.ListOptions{})
+	if err != nil {
+		// throw error
+	}
 
+	for _, ingress := range ingressList.Items {
+		if ingress.Spec.Backend.ServiceName == serviceName {
+			fmt.Println("Ingress & Service Name matched")
+			c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Delete(ingress.ObjectMeta.Name, &meta_v1.DeleteOptions{})
+			break
+		}
+	}
 }
 
 // handleErr checks if an error happened and makes sure we will retry later.

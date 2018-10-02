@@ -1,3 +1,4 @@
-domain: www.stakater.com
+domain: stakater.com
 ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
-ingressNameTemplate: "{{.Service}}-{{.Namespace}}"
+ingressURLPath: /
+ingressNameTemplate: "{{.Service}}"

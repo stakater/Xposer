@@ -10,6 +10,7 @@ import (
 type Configuration struct {
 	Domain              string `yaml:"domain"`
 	IngressURLTemplate  string `yaml:"ingressURLTemplate"`
+	IngressURLPath      string `yaml:"ingressURLPath"`
 	IngressNameTemplate string `yaml:"ingressNameTemplate"`
 }
 
