@@ -1,8 +1,8 @@
 package config
 
 import (
+	"fmt"
 	"io/ioutil"
-	"log"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -15,21 +15,23 @@ type Configuration struct {
 }
 
 //ReadConfig function that reads the yaml file
-func ReadConfig(filePath string) Configuration {
+func ReadConfig(filePath string) (Configuration, error) {
 	var config Configuration
 	// Read YML
 	source, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		log.Panic(err)
+		fmt.Println(err)
+		return config, err
 	}
 
 	// Unmarshall
 	err = yaml.Unmarshal(source, &config)
 	if err != nil {
-		log.Panic(err)
+		fmt.Println(err)
+		return config, err
 	}
 
-	return config
+	return config, nil
 }
 
 //WriteConfig function that can write to the yaml file

@@ -72,6 +72,9 @@ func getControllerConfig() config.Configuration {
 		configFilePath = "configs/config.yaml"
 	}
 
-	configuration := config.ReadConfig(configFilePath)
+	configuration, err := config.ReadConfig(configFilePath)
+	if err != nil {
+		fmt.Println(err)
+	}
 	return configuration
 }

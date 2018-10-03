@@ -1,20 +1,19 @@
 package controller
 
 import (
-	"bytes"
 	"fmt"
-	"html/template"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/fatih/structs"
 	"github.com/stakater/Xposer/pkg/config"
+	"github.com/stakater/Xposer/pkg/constants"
+	"github.com/stakater/Xposer/pkg/ingresses"
+	"github.com/stakater/Xposer/pkg/templates"
 	"k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	intstr "k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -29,9 +28,10 @@ const (
 
 // Event which is used to send additional information than just the key, can have other entiites
 type Event struct {
-	key         string
-	eventType   string
-	serviceName string
+	key       string
+	eventType string
+	oldObject interface{}
+	newObject interface{}
 }
 
 // Controller for checking items
@@ -82,7 +82,7 @@ func (c *Controller) Add(obj interface{}) {
 	if err == nil {
 		event.key = key
 		event.eventType = "create"
-		event.serviceName = obj.(*v1.Service).Name
+		event.newObject = obj
 		c.queue.Add(event)
 	}
 }
@@ -97,7 +97,8 @@ func (c *Controller) Update(oldObj interface{}, newObj interface{}) {
 	if err == nil {
 		event.key = key
 		event.eventType = "update"
-		event.serviceName = oldObj.(*v1.Service).Name
+		event.oldObject = oldObj
+		event.newObject = newObj
 		c.queue.Add(event)
 	}
 }
@@ -112,7 +113,7 @@ func (c *Controller) Delete(obj interface{}) {
 	if err == nil {
 		event.key = key
 		event.eventType = "delete"
-		event.serviceName = obj.(*v1.Service).Name
+		event.newObject = obj
 		c.queue.Add(event)
 	}
 }
@@ -164,28 +165,22 @@ func (c *Controller) processNextItem() bool {
 
 //takeAction, the main function which will be handling the controller business logic
 func (c *Controller) takeAction(event Event) error {
-
-	obj, _, err := c.indexer.GetByKey(event.key)
-	if err != nil {
-		log.Printf("Fetching object with key %s from store failed with %v", event.key, err)
-	}
-
 	// process events based on its type
 	switch event.eventType {
 	//Printing Pod Name and its Containers from all namespaces but we can do anything in these functions
 	case "create":
-		objectCreated(obj, c)
+		c.serviceCreated(event.newObject)
 
 	case "update":
-		objectUpdated(obj, c)
+		c.serviceUpdated(event.oldObject, event.newObject)
 
 	case "delete":
-		objectDeleted(event.serviceName, c) //Incase of deleted, the obj object is nil
+		c.serviceDeleted(event.newObject) //Incase of deleted, the obj object is nil
 	}
 
 	return nil
 }
-func objectCreated(obj interface{}, c *Controller) {
+func (c *Controller) serviceCreated(obj interface{}) {
 	// Currently printing all pods but we can restrict using any of the data in yaml file
 	// e.g If want to check on APIVersion uncomment this.
 	// if obj.(*v1.Pod).APIVersion == "samplecontroller.k8s.io/v1alpha1" {
@@ -198,144 +193,100 @@ func objectCreated(obj interface{}, c *Controller) {
 	// fmt.Println("Label Expose: ", obj.(*v1.Service).ObjectMeta.Labels["expose"])
 	// fmt.Println("Selector: ", obj.(*v1.Service).Spec.Ports[0].Port)
 	// fmt.Println("Printing annotations")
+	newServiceObject := obj.(*v1.Service)
 
-	splittedAnnotations := strings.Split(string(obj.(*v1.Service).ObjectMeta.Annotations["xposer.stakater.com/annotations"]), "\n")
-	fmt.Println("Splitted Annotations length: ", len(splittedAnnotations))
+	// Label for wether to create an ingress for this service or not
+	if newServiceObject.ObjectMeta.Labels["expose"] == "true" {
+		splittedAnnotations := strings.Split(string(newServiceObject.ObjectMeta.Annotations[constants.FORWARD_ANNOTATIONS]), "\n")
+		fmt.Println("Splitted Annotations length: ", len(splittedAnnotations))
 
-	forwardAnnotationsMap := make(map[string]string)
-	ingressConfig := structs.Map(c.config)
+		forwardAnnotationsMap := make(map[string]string)
+		ingressConfig := structs.Map(c.config)
 
-	for annotationKey, annotationValue := range obj.(*v1.Service).ObjectMeta.Annotations {
-		if strings.HasPrefix(annotationKey, "config.xposer.stakater.com/") {
-			ingressConfig[strings.SplitN(annotationKey, "/", 2)[1]] = annotationValue
+		for annotationKey, annotationValue := range newServiceObject.ObjectMeta.Annotations {
+			if strings.HasPrefix(annotationKey, constants.INGRESS_ANNOTATIONS) {
+				ingressConfig[strings.SplitN(annotationKey, "/", 2)[1]] = annotationValue
+			}
 		}
-	}
 
-	// Adds "/" in URL Path, if user has entered path annotaion without "/"
-	if !strings.HasPrefix(ingressConfig["IngressURLPath"].(string), "/") {
-		ingressConfig["IngressURLPath"] = "/" + ingressConfig["IngressURLPath"].(string)
-	}
-
-	/*
-		Removes the content after "/" from URL-Template, and if user has not specified path from annotation,
-		use the content after "/" as URL-Path
-	*/
-	if strings.Contains(ingressConfig["IngressURLTemplate"].(string), "/") {
-		fmt.Println("Contains slash")
-		splittedURLTemplate := strings.SplitN(ingressConfig["IngressURLTemplate"].(string), "/", 2)
-		ingressConfig["IngressURLTemplate"] = splittedURLTemplate[0]
-
-		if ingressConfig["IngressURLPath"].(string) == "/" {
-			ingressConfig["IngressURLPath"] = ingressConfig["IngressURLPath"].(string) + splittedURLTemplate[1]
+		// Adds "/" in URL Path, if user has entered path annotaion without "/"
+		if !strings.HasPrefix(ingressConfig[constants.INGRESS_URL_PATH].(string), "/") {
+			ingressConfig[constants.INGRESS_URL_PATH] = "/" + ingressConfig[constants.INGRESS_URL_PATH].(string)
 		}
-	}
 
-	for _, annotation := range splittedAnnotations {
-		fmt.Println("Annotation-split: ", annotation)
-		parsedAnnotation := strings.Split(annotation, ":")
-		if len(parsedAnnotation) != 2 {
-			// throw error
+		/*
+			Removes the content after "/" from URL-Template, and if user has not specified path from annotation,
+			use the content after "/" as URL-Path
+		*/
+		if strings.Contains(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), "/") {
+			fmt.Println("Contains slash")
+			splittedURLTemplate := strings.SplitN(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), "/", 2)
+			ingressConfig[constants.INGRESS_URL_TEMPLATE] = splittedURLTemplate[0]
+
+			if ingressConfig[constants.INGRESS_URL_PATH].(string) == "/" {
+				ingressConfig[constants.INGRESS_URL_PATH] = ingressConfig[constants.INGRESS_URL_PATH].(string) + splittedURLTemplate[1]
+			}
 		}
-		forwardAnnotationsMap[parsedAnnotation[0]] = parsedAnnotation[1]
-	}
 
-	type URLTemplate struct {
-		Service   string
-		Namespace string
-		Domain    string
-	}
+		for _, annotation := range splittedAnnotations {
+			fmt.Println("Annotation-split: ", annotation)
+			parsedAnnotation := strings.Split(annotation, ":")
+			if len(parsedAnnotation) != 2 {
+				// throw error
+			}
+			forwardAnnotationsMap[parsedAnnotation[0]] = parsedAnnotation[1]
+		}
 
-	var tmpURLBuffer bytes.Buffer
-	var tmpNameBuffer bytes.Buffer
-	var tmpPathBuffer bytes.Buffer
+		urlTemplate := &templates.URLTemplate{
+			Service:   newServiceObject.Name,
+			Namespace: "first-controller",
+			Domain:    ingressConfig["Domain"].(string),
+		}
 
-	urlTemplate := &URLTemplate{
-		Service:   obj.(*v1.Service).Name,
-		Namespace: "first-controller",
-		Domain:    ingressConfig["Domain"].(string),
-	}
+		nameTemplate := &templates.NameTemplate{
+			Service:   newServiceObject.Name,
+			Namespace: "first-controller",
+		}
 
-	tmplURL, err := template.New("ingressURLTemplate").Parse(ingressConfig["IngressURLTemplate"].(string))
-	if err != nil {
-		panic(err)
-	}
-	err = tmplURL.Execute(&tmpURLBuffer, urlTemplate)
-	if err != nil {
-		panic(err)
-	}
+		parsedURL := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), urlTemplate)
+		parsedURLPath := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_PATH].(string), urlTemplate)
+		parsedIngressName := templates.ParseIngressNameTemplate(ingressConfig[constants.INGRESS_NAME_TEMPLATE].(string), nameTemplate)
 
-	tmplName, err := template.New("ingressNameTemplate").Parse(ingressConfig["IngressNameTemplate"].(string))
-	if err != nil {
-		panic(err)
-	}
-	err = tmplName.Execute(&tmpNameBuffer, urlTemplate)
+		ingress := ingresses.CreateIngress(parsedIngressName, c.namespace, forwardAnnotationsMap, parsedURL,
+			parsedURLPath, newServiceObject.Name, getServicePortFromEvent(newServiceObject))
 
-	tmplPath, err := template.New("ingressPathTemplate").Parse(ingressConfig["IngressURLPath"].(string))
-	if err != nil {
-		panic(err)
-	}
-	err = tmplPath.Execute(&tmpPathBuffer, urlTemplate)
+		result, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Create(ingress)
+		if err != nil {
+			fmt.Println(err)
+		}
 
-	ingress := &v1beta1.Ingress{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:        tmpNameBuffer.String(),
-			Namespace:   c.namespace,
-			Annotations: forwardAnnotationsMap,
-		},
-		Spec: v1beta1.IngressSpec{
-			Backend: &v1beta1.IngressBackend{
-				ServiceName: obj.(*v1.Service).Name,
-				ServicePort: intstr.FromInt(int(obj.(*v1.Service).Spec.Ports[0].Port)),
-			},
-			Rules: []v1beta1.IngressRule{
-				v1beta1.IngressRule{
-					Host: tmpURLBuffer.String(),
-					IngressRuleValue: v1beta1.IngressRuleValue{
-						HTTP: &v1beta1.HTTPIngressRuleValue{
-							Paths: []v1beta1.HTTPIngressPath{
-								v1beta1.HTTPIngressPath{
-									Path: tmpPathBuffer.String(),
-									Backend: v1beta1.IngressBackend{
-										ServiceName: obj.(*v1.Service).Name,
-										ServicePort: intstr.FromInt(int(obj.(*v1.Service).Spec.Ports[0].Port)),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+		fmt.Println("Created ingress", result.GetObjectMeta().GetName())
+	} else {
+		fmt.Println("Expose label not found, so not creating ingress")
 	}
+}
+func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
+	fmt.Println("\nService Updated Event")
+	c.serviceDeleted(oldObj)
+	c.serviceCreated(newObj)
+	fmt.Println("Ingress Updated")
+}
 
-	result, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Create(ingress)
+func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
+	serviceToDelete := deletedServiceObject.(*v1.Service)
+	fmt.Println("Service Name: ", serviceToDelete.Name)
+	ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").List(meta_v1.ListOptions{})
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	fmt.Println("Created ingress", result.GetObjectMeta().GetName())
+	ingressToRemove := ingresses.GetIngressFromListMatchingGivenServiceName(ingressList, serviceToDelete.Name)
+	c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Delete(ingressToRemove.ObjectMeta.Name, &meta_v1.DeleteOptions{})
+	fmt.Println("Ingress Deleted with name: ", ingressToRemove.ObjectMeta.Name)
 }
-func objectUpdated(obj interface{}, c *Controller) {
-	fmt.Println("\nService Updated Event")
 
-	//	c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Update()
-}
-func objectDeleted(serviceName string, c *Controller) {
-	fmt.Println("\nService Deleted Event")
-	fmt.Println("Service Name: ", serviceName)
-	//	result, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Get(serviceName, meta_v1.GetOptions{})
-	ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").List(meta_v1.ListOptions{})
-	if err != nil {
-		// throw error
-	}
-
-	for _, ingress := range ingressList.Items {
-		if ingress.Spec.Backend.ServiceName == serviceName {
-			fmt.Println("Ingress & Service Name matched")
-			c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Delete(ingress.ObjectMeta.Name, &meta_v1.DeleteOptions{})
-			break
-		}
-	}
+func getServicePortFromEvent(service *v1.Service) int {
+	return int(service.Spec.Ports[0].Port)
 }
 
 // handleErr checks if an error happened and makes sure we will retry later.
