@@ -1,11 +1,13 @@
 package: github.com/stakater/Xposer
 import:
 - package: k8s.io/api
-  version: kubernetes-1.8.0
+  version: kubernetes-1.9.1
 - package: k8s.io/apimachinery
-  version: kubernetes-1.8.0
+  version: kubernetes-1.9.1
 - package: k8s.io/client-go
-  version: 5.0.0
+  version: kubernetes-1.9.1
 - package: gopkg.in/yaml.v2
 - package: github.com/fatih/structs
   version: v1.0
+- package: github.com/openshift/client-go
+  version: v3.9.0

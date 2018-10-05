@@ -2,3 +2,7 @@ vendor
 Kubernetes-Controller
 testService.yaml
 Xposer
+Dockerfile
+configmap.yaml
+deployment.yaml
+rbac.yaml

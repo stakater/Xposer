@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	config "github.com/stakater/Xposer/pkg/config"
 	"github.com/stakater/Xposer/pkg/controller"
 	"github.com/stakater/Xposer/pkg/kube"
@@ -22,23 +23,29 @@ func main() {
 	}
 
 	var kubeClient kubernetes.Interface
-	_, err := rest.InClusterConfig()
+	var osClient *routeClient.RouteV1Client
+
+	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		kubeClient = kube.GetClientOutOfCluster()
 	} else {
 		kubeClient = kube.GetClient()
 	}
 
-	var resource = "services"
+	var clusterType = "kubernetes"
 	if kube.IsOpenShift(kubeClient.(*kubernetes.Clientset)) {
-		resource = "routes"
+		clusterType = "openshift"
+		osClient, err = routeClient.NewForConfig(cfg)
+		if err != nil {
+			log.Panic(err.Error())
+		}
 	}
 
 	config := getControllerConfig()
 	fmt.Println("Config: ", config)
 	// Now let's start the controller
 	fmt.Println("Initializing Controller")
-	controller := controller.NewController(kubeClient, config, resource, currentNamespace)
+	controller := controller.NewController(kubeClient, osClient, config, clusterType, currentNamespace)
 	stop := make(chan struct{})
 	defer close(stop)
 	go controller.Run(1, stop)

@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/fatih/structs"
+	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	"github.com/stakater/Xposer/pkg/config"
 	"github.com/stakater/Xposer/pkg/constants"
 	"github.com/stakater/Xposer/pkg/ingresses"
+	"github.com/stakater/Xposer/pkg/routes"
 	"github.com/stakater/Xposer/pkg/templates"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,27 +38,30 @@ type Event struct {
 
 // Controller for checking items
 type Controller struct {
-	clientset kubernetes.Interface
-	resource  string
-	namespace string
-	indexer   cache.Indexer
-	queue     workqueue.RateLimitingInterface
-	informer  cache.Controller
-	config    config.Configuration
+	clientset   kubernetes.Interface
+	osClient    *routeClient.RouteV1Client
+	clusterType string
+	namespace   string
+	indexer     cache.Indexer
+	queue       workqueue.RateLimitingInterface
+	informer    cache.Controller
+	config      config.Configuration
 }
 
 // NewController A Constructor for the Controller to initialize the controller
-func NewController(clientset kubernetes.Interface, conf config.Configuration, resource string, namespace string) *Controller {
+func NewController(clientset kubernetes.Interface, osClient *routeClient.RouteV1Client, conf config.Configuration, clusterType string, namespace string) *Controller {
 	controller := &Controller{
-		clientset: clientset,
-		config:    conf,
-		resource:  resource,
-		namespace: namespace,
+		clientset:   clientset,
+		osClient:    osClient,
+		config:      conf,
+		clusterType: clusterType,
+		namespace:   namespace,
 	}
 
+	//	osClient.Routes().Create()
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	// replace 'first-controller' with generic namespace after testing
-	listWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), resource, "first-controller", fields.Everything())
+	listWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "services", "first-controller", fields.Everything())
 
 	indexer, informer := cache.NewIndexerInformer(listWatcher, &v1.Service{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.Add,    //function that is called when the object is created
@@ -76,8 +81,6 @@ func (c *Controller) Add(obj interface{}) {
 	var event Event
 
 	fmt.Println("Adding create event to queue")
-	fmt.Println("Service Name: ", obj.(*v1.Service).Name)
-	fmt.Println("Service Spec: ", obj.(*v1.Service).Spec.Selector["app"])
 
 	if err == nil {
 		event.key = key
@@ -234,7 +237,7 @@ func (c *Controller) serviceCreated(obj interface{}) {
 			if len(parsedAnnotation) != 2 {
 				// throw error
 			}
-			forwardAnnotationsMap[parsedAnnotation[0]] = parsedAnnotation[1]
+			forwardAnnotationsMap[parsedAnnotation[0]] = strings.Trim(parsedAnnotation[1], " ")
 		}
 
 		urlTemplate := &templates.URLTemplate{
@@ -252,15 +255,34 @@ func (c *Controller) serviceCreated(obj interface{}) {
 		parsedURLPath := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_PATH].(string), urlTemplate)
 		parsedIngressName := templates.ParseIngressNameTemplate(ingressConfig[constants.INGRESS_NAME_TEMPLATE].(string), nameTemplate)
 
-		ingress := ingresses.CreateIngress(parsedIngressName, c.namespace, forwardAnnotationsMap, parsedURL,
-			parsedURLPath, newServiceObject.Name, getServicePortFromEvent(newServiceObject))
+		if c.clusterType == "kubernetes" {
+			fmt.Println("Current cluster is of Kuberenetes; so creating an Ingress")
+			ingress := ingresses.CreateIngress(parsedIngressName, c.namespace, forwardAnnotationsMap, parsedURL,
+				parsedURLPath, newServiceObject.Name, getServicePortFromEvent(newServiceObject))
 
-		result, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Create(ingress)
-		if err != nil {
-			fmt.Println(err)
+			result, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Create(ingress)
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Println("Created ingress", result.Name)
+			}
 		}
 
-		fmt.Println("Created ingress", result.GetObjectMeta().GetName())
+		if c.clusterType == "openshift" {
+			fmt.Println("Open shift cluster found; so creating a route")
+			route := routes.CreateRoute(parsedIngressName, c.namespace, forwardAnnotationsMap, parsedURL,
+				parsedURLPath, newServiceObject.Name, getServicePortFromEvent(newServiceObject))
+
+			result, err := c.osClient.Routes("first-controller").Create(route)
+
+			if err != nil {
+				fmt.Println("Error creating route")
+				fmt.Println(err)
+			} else {
+				fmt.Println("Created route: ", result.Name)
+			}
+		}
+
 	} else {
 		fmt.Println("Expose label not found, so not creating ingress")
 	}

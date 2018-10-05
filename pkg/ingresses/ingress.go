@@ -37,6 +37,12 @@ func CreateIngress(parsedIngressName string, namespace string, forwardAnnotation
 				ServiceName: serviceName,
 				ServicePort: intstr.FromInt(servicePort),
 			},
+			TLS: []v1beta1.IngressTLS{
+				v1beta1.IngressTLS{
+					Hosts:      []string{ingressHost},
+					SecretName: parsedIngressName + "-cert",
+				},
+			},
 			Rules: []v1beta1.IngressRule{
 				v1beta1.IngressRule{
 					Host: ingressHost,
