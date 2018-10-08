@@ -2,12 +2,13 @@ package controller
 
 import (
 	"fmt"
-	"log"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/fatih/structs"
 	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
+	"github.com/sirupsen/logrus"
 	"github.com/stakater/Xposer/pkg/config"
 	"github.com/stakater/Xposer/pkg/constants"
 	"github.com/stakater/Xposer/pkg/ingresses"
@@ -21,11 +22,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-)
-
-// AllNamespaces as our controller will be looking for events in all namespaces
-const (
-	AllNamespaces = ""
 )
 
 // Event which is used to send additional information than just the key, can have other entiites
@@ -58,10 +54,8 @@ func NewController(clientset kubernetes.Interface, osClient *routeClient.RouteV1
 		namespace:   namespace,
 	}
 
-	//	osClient.Routes().Create()
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	// replace 'first-controller' with generic namespace after testing
-	listWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), "services", "first-controller", fields.Everything())
+	listWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), constants.SERVICES, namespace, fields.Everything())
 
 	indexer, informer := cache.NewIndexerInformer(listWatcher, &v1.Service{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.Add,    //function that is called when the object is created
@@ -80,8 +74,6 @@ func (c *Controller) Add(obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	var event Event
 
-	fmt.Println("Adding create event to queue")
-
 	if err == nil {
 		event.key = key
 		event.eventType = "create"
@@ -94,8 +86,6 @@ func (c *Controller) Add(obj interface{}) {
 func (c *Controller) Update(oldObj interface{}, newObj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(newObj)
 	var event Event
-
-	fmt.Println("Adding update event to queue")
 
 	if err == nil {
 		event.key = key
@@ -110,8 +100,6 @@ func (c *Controller) Update(oldObj interface{}, newObj interface{}) {
 func (c *Controller) Delete(obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	var event Event
-
-	fmt.Println("Adding delete event to queue")
 
 	if err == nil {
 		event.key = key
@@ -170,7 +158,6 @@ func (c *Controller) processNextItem() bool {
 func (c *Controller) takeAction(event Event) error {
 	// process events based on its type
 	switch event.eventType {
-	//Printing Pod Name and its Containers from all namespaces but we can do anything in these functions
 	case "create":
 		c.serviceCreated(event.newObject)
 
@@ -184,25 +171,12 @@ func (c *Controller) takeAction(event Event) error {
 	return nil
 }
 func (c *Controller) serviceCreated(obj interface{}) {
-	// Currently printing all pods but we can restrict using any of the data in yaml file
-	// e.g If want to check on APIVersion uncomment this.
-	// if obj.(*v1.Pod).APIVersion == "samplecontroller.k8s.io/v1alpha1" {
-
-	// fmt.Println("\nService Created Event")
-	// fmt.Println("Name: ", obj.(*v1.Service).Name)
-	// fmt.Println("First Annotation: ", obj.(*v1.Service).ObjectMeta.Annotations["firstAnnotation"])
-	// fmt.Println("Second Annotation: ", strings.Split(obj.(*v1.Service).ObjectMeta.Annotations["xposer.stakater.com/annotations"], "\n"))
-	// fmt.Println("Label 1: ", obj.(*v1.Service).ObjectMeta.Labels["k8sapp"])
-	// fmt.Println("Label Expose: ", obj.(*v1.Service).ObjectMeta.Labels["expose"])
-	// fmt.Println("Selector: ", obj.(*v1.Service).Spec.Ports[0].Port)
-	// fmt.Println("Printing annotations")
+	logrus.Info("Handling a new service created event")
 	newServiceObject := obj.(*v1.Service)
 
 	// Label for wether to create an ingress for this service or not
 	if newServiceObject.ObjectMeta.Labels["expose"] == "true" {
 		splittedAnnotations := strings.Split(string(newServiceObject.ObjectMeta.Annotations[constants.FORWARD_ANNOTATIONS]), "\n")
-		fmt.Println("Splitted Annotations length: ", len(splittedAnnotations))
-
 		forwardAnnotationsMap := make(map[string]string)
 		ingressConfig := structs.Map(c.config)
 
@@ -222,7 +196,6 @@ func (c *Controller) serviceCreated(obj interface{}) {
 			use the content after "/" as URL-Path
 		*/
 		if strings.Contains(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), "/") {
-			fmt.Println("Contains slash")
 			splittedURLTemplate := strings.SplitN(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), "/", 2)
 			ingressConfig[constants.INGRESS_URL_TEMPLATE] = splittedURLTemplate[0]
 
@@ -232,79 +205,93 @@ func (c *Controller) serviceCreated(obj interface{}) {
 		}
 
 		for _, annotation := range splittedAnnotations {
-			fmt.Println("Annotation-split: ", annotation)
 			parsedAnnotation := strings.Split(annotation, ":")
 			if len(parsedAnnotation) != 2 {
-				// throw error
+				logrus.Errorf("Wrong annotation provided to forward to ingress : %v", annotation)
+			} else {
+				forwardAnnotationsMap[parsedAnnotation[0]] = strings.Trim(parsedAnnotation[1], " ")
 			}
-			forwardAnnotationsMap[parsedAnnotation[0]] = strings.Trim(parsedAnnotation[1], " ")
 		}
 
 		urlTemplate := &templates.URLTemplate{
 			Service:   newServiceObject.Name,
-			Namespace: "first-controller",
-			Domain:    ingressConfig["Domain"].(string),
+			Namespace: c.namespace,
+			Domain:    ingressConfig[constants.DOMAIN].(string),
 		}
 
 		nameTemplate := &templates.NameTemplate{
 			Service:   newServiceObject.Name,
-			Namespace: "first-controller",
+			Namespace: c.namespace,
 		}
 
 		parsedURL := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), urlTemplate)
 		parsedURLPath := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_PATH].(string), urlTemplate)
 		parsedIngressName := templates.ParseIngressNameTemplate(ingressConfig[constants.INGRESS_NAME_TEMPLATE].(string), nameTemplate)
 
-		if c.clusterType == "kubernetes" {
-			fmt.Println("Current cluster is of Kuberenetes; so creating an Ingress")
+		if c.clusterType == constants.KUBERNETES {
 			ingress := ingresses.CreateIngress(parsedIngressName, c.namespace, forwardAnnotationsMap, parsedURL,
 				parsedURLPath, newServiceObject.Name, getServicePortFromEvent(newServiceObject))
 
-			result, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Create(ingress)
+			switch tlsSwitch := ingressConfig[constants.TLS].(type) {
+			case string:
+				tls, err := strconv.ParseBool(tlsSwitch)
+				if err != nil {
+					logrus.Warnf("The value of TLS annotation is wrong. It should only be true or false. Reverting to default value: %v", c.config.TLS)
+					ingressConfig[constants.TLS] = c.config.TLS
+				} else {
+					ingressConfig[constants.TLS] = tls
+				}
+				break
+			}
+
+			if ingressConfig[constants.TLS] == true {
+				logrus.Info("Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
+				ingresses.AddTLSInfoToIngress(*ingress, parsedIngressName, parsedURL)
+			}
+
+			result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Create(ingress)
 			if err != nil {
-				fmt.Println(err)
+				logrus.Errorf("Error while creating Ingress: %v", err)
 			} else {
-				fmt.Println("Created ingress", result.Name)
+				logrus.Infof("Successfully created an Ingress with name: %v", result.Name)
 			}
 		}
 
-		if c.clusterType == "openshift" {
-			fmt.Println("Open shift cluster found; so creating a route")
+		if c.clusterType == constants.OPENSHIFT {
 			route := routes.CreateRoute(parsedIngressName, c.namespace, forwardAnnotationsMap, parsedURL,
 				parsedURLPath, newServiceObject.Name, getServicePortFromEvent(newServiceObject))
 
-			result, err := c.osClient.Routes("first-controller").Create(route)
+			result, err := c.osClient.Routes(c.namespace).Create(route)
 
 			if err != nil {
-				fmt.Println("Error creating route")
-				fmt.Println(err)
+				logrus.Errorf("Error while creating Route: %v", err)
 			} else {
-				fmt.Println("Created route: ", result.Name)
+				logrus.Infof("Successfully created a Route with name: %v", result.Name)
 			}
 		}
 
 	} else {
-		fmt.Println("Expose label not found, so not creating ingress")
+		logrus.Info("Service does not contain expose label, so not creating an Ingress for it")
 	}
 }
 func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
-	fmt.Println("\nService Updated Event")
+	logrus.Info("Handling a service updated event")
 	c.serviceDeleted(oldObj)
 	c.serviceCreated(newObj)
-	fmt.Println("Ingress Updated")
 }
 
 func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
+	logrus.Info("Handling a service deleted event")
 	serviceToDelete := deletedServiceObject.(*v1.Service)
-	fmt.Println("Service Name: ", serviceToDelete.Name)
-	ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses("first-controller").List(meta_v1.ListOptions{})
+
+	ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).List(meta_v1.ListOptions{})
 	if err != nil {
-		fmt.Println(err)
+		logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
 	}
 
 	ingressToRemove := ingresses.GetIngressFromListMatchingGivenServiceName(ingressList, serviceToDelete.Name)
-	c.clientset.ExtensionsV1beta1().Ingresses("first-controller").Delete(ingressToRemove.ObjectMeta.Name, &meta_v1.DeleteOptions{})
-	fmt.Println("Ingress Deleted with name: ", ingressToRemove.ObjectMeta.Name)
+	c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Delete(ingressToRemove.ObjectMeta.Name, &meta_v1.DeleteOptions{})
+	logrus.Infof("Ingress Deleted with name: %v", ingressToRemove.ObjectMeta.Name)
 }
 
 func getServicePortFromEvent(service *v1.Service) int {
@@ -323,7 +310,7 @@ func (c *Controller) handleErr(err error, key interface{}) {
 
 	// This controller retries 5 times if something goes wrong. After that, it stops trying.
 	if c.queue.NumRequeues(key) < 5 {
-		log.Printf("Error syncing ingress %v: %v", key, err)
+		logrus.Printf("Error syncing ingress %v: %v", key, err)
 
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
@@ -334,5 +321,5 @@ func (c *Controller) handleErr(err error, key interface{}) {
 	c.queue.Forget(key)
 	// Report to an external entity that, even after several retries, we could not successfully process this key
 	runtime.HandleError(err)
-	log.Printf("Dropping ingress %q out of the queue: %v", key, err)
+	logrus.Printf("Dropping ingress %q out of the queue: %v", key, err)
 }

@@ -2,8 +2,9 @@ package templates
 
 import (
 	"bytes"
-	"fmt"
 	"html/template"
+
+	"github.com/sirupsen/logrus"
 )
 
 type URLTemplate struct {
@@ -14,7 +15,7 @@ type URLTemplate struct {
 
 func ParseIngressURLOrPathTemplate(templateToParse string, URLTemplate *URLTemplate) string {
 	var parsedTemplate bytes.Buffer
-	fmt.Println("Template to parse: ", templateToParse)
+	logrus.Infof("Template to parse: %v", templateToParse)
 	tmplURL, err := template.New("template").Parse(templateToParse)
 	if err != nil {
 		panic(err)
@@ -23,6 +24,6 @@ func ParseIngressURLOrPathTemplate(templateToParse string, URLTemplate *URLTempl
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Parsed template: ", parsedTemplate.String())
+	logrus.Infof("Parsed template: %v", parsedTemplate.String())
 	return parsedTemplate.String()
 }

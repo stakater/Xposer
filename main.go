@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
-	"log"
 	"os"
 
 	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
+	"github.com/sirupsen/logrus"
 	config "github.com/stakater/Xposer/pkg/config"
+	"github.com/stakater/Xposer/pkg/constants"
 	"github.com/stakater/Xposer/pkg/controller"
 	"github.com/stakater/Xposer/pkg/kube"
 	"k8s.io/api/core/v1"
@@ -19,7 +19,7 @@ func main() {
 	currentNamespace := os.Getenv("KUBERNETES_NAMESPACE")
 	if len(currentNamespace) == 0 {
 		currentNamespace = v1.NamespaceAll
-		log.Println("Warning: KUBERNETES_NAMESPACE is unset, will monitor ingresses in all namespaces.")
+		logrus.Warnf("Warning: KUBERNETES_NAMESPACE is unset, will monitor services in all namespaces.")
 	}
 
 	var kubeClient kubernetes.Interface
@@ -32,20 +32,20 @@ func main() {
 		kubeClient = kube.GetClient()
 	}
 
-	var clusterType = "kubernetes"
+	var clusterType = constants.KUBERNETES
 	if kube.IsOpenShift(kubeClient.(*kubernetes.Clientset)) {
-		clusterType = "openshift"
+		clusterType = constants.OPENSHIFT
 		osClient, err = routeClient.NewForConfig(cfg)
 		if err != nil {
-			log.Panic(err.Error())
+			logrus.Panic(err.Error())
 		}
 	}
 
 	config := getControllerConfig()
-	fmt.Println("Config: ", config)
-	// Now let's start the controller
-	fmt.Println("Initializing Controller")
 	controller := controller.NewController(kubeClient, osClient, config, clusterType, currentNamespace)
+
+	logrus.Infof("Controller started in the namespace: %v, with cluster type: %v", currentNamespace, clusterType)
+
 	stop := make(chan struct{})
 	defer close(stop)
 	go controller.Run(1, stop)
@@ -81,7 +81,7 @@ func getControllerConfig() config.Configuration {
 
 	configuration, err := config.ReadConfig(configFilePath)
 	if err != nil {
-		fmt.Println(err)
+		logrus.Panic(err)
 	}
 	return configuration
 }

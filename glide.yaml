@@ -11,3 +11,5 @@ import:
   version: v1.0
 - package: github.com/openshift/client-go
   version: v3.9.0
+- package: github.com/sirupsen/logrus
+  version: 1.0.5

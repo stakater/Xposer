@@ -3,6 +3,7 @@ package ingresses
 import (
 	"fmt"
 
+	"github.com/stakater/Xposer/pkg/constants"
 	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -22,8 +23,18 @@ func GetIngressFromListMatchingGivenServiceName(ingressList *v1beta1.IngressList
 	return matchedIngress
 }
 
-func CreateIngress(parsedIngressName string, namespace string, forwardAnnotationsMap map[string]string,
+func AddTLSInfoToIngress(ingress v1beta1.Ingress, ingressName string, ingressHost string) v1beta1.Ingress {
+	ingress.Spec.TLS = []v1beta1.IngressTLS{
+		v1beta1.IngressTLS{
+			Hosts:      []string{ingressHost},
+			SecretName: ingressName + constants.CERT,
+		},
+	}
 
+	return ingress
+}
+
+func CreateIngress(parsedIngressName string, namespace string, forwardAnnotationsMap map[string]string,
 	ingressHost string, ingressPath string, serviceName string, servicePort int) *v1beta1.Ingress {
 
 	return &v1beta1.Ingress{
@@ -36,12 +47,6 @@ func CreateIngress(parsedIngressName string, namespace string, forwardAnnotation
 			Backend: &v1beta1.IngressBackend{
 				ServiceName: serviceName,
 				ServicePort: intstr.FromInt(servicePort),
-			},
-			TLS: []v1beta1.IngressTLS{
-				v1beta1.IngressTLS{
-					Hosts:      []string{ingressHost},
-					SecretName: parsedIngressName + "-cert",
-				},
 			},
 			Rules: []v1beta1.IngressRule{
 				v1beta1.IngressRule{

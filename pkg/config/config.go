@@ -1,8 +1,9 @@
 package config
 
 import (
-	"fmt"
 	"io/ioutil"
+
+	"github.com/sirupsen/logrus"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -12,6 +13,7 @@ type Configuration struct {
 	IngressURLTemplate  string `yaml:"ingressURLTemplate"`
 	IngressURLPath      string `yaml:"ingressURLPath"`
 	IngressNameTemplate string `yaml:"ingressNameTemplate"`
+	TLS                 bool   `yaml:"tls"`
 }
 
 //ReadConfig function that reads the yaml file
@@ -20,14 +22,14 @@ func ReadConfig(filePath string) (Configuration, error) {
 	// Read YML
 	source, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		fmt.Println(err)
+		logrus.Errorf("Error reading config: %v", err)
 		return config, err
 	}
 
 	// Unmarshall
 	err = yaml.Unmarshal(source, &config)
 	if err != nil {
-		fmt.Println(err)
+		logrus.Errorf("Error unmarshalling config: %v", err)
 		return config, err
 	}
 
