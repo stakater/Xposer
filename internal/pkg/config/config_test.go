@@ -18,7 +18,7 @@ func TestReadConfig(t *testing.T) {
 		{
 			name: "true",
 			args: args{
-				filePath: "../../configs/testConfig.yaml",
+				filePath: "../../../configs/testConfig.yaml",
 			},
 			want: Configuration{
 				Domain: "testDomain.com",
@@ -28,7 +28,7 @@ func TestReadConfig(t *testing.T) {
 		{
 			name: "true",
 			args: args{
-				filePath: "../../configs/test.yaml",
+				filePath: "../../configs/testConfig.yaml",
 			},
 			want:    Configuration{},
 			wantErr: true,
