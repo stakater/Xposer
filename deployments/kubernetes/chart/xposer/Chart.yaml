@@ -1,0 +1,13 @@
+# Generated from deployments/kubernetes/templates/chart/Chart.yaml.tmpl
+
+apiVersion: v1
+name: xposer
+description: xposer chart that runs on kubernetes
+version: 0.0.1
+keywords:
+  - Xposer
+  - kubernetes
+home: https://github.com/stakater/Xposer
+maintainers:
+- name: Stakater
+  email: hello@stakater.com
