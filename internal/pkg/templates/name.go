@@ -6,7 +6,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/stakater/Xposer/pkg/constants"
+	"github.com/stakater/Xposer/internal/pkg/constants"
 )
 
 type NameTemplate struct {

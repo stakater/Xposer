@@ -3,7 +3,7 @@ package ingresses
 import (
 	"fmt"
 
-	"github.com/stakater/Xposer/pkg/constants"
+	"github.com/stakater/Xposer/internal/pkg/constants"
 	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
