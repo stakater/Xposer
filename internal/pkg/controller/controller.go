@@ -13,6 +13,7 @@ import (
 	"github.com/stakater/Xposer/internal/pkg/constants"
 	"github.com/stakater/Xposer/internal/pkg/ingresses"
 	"github.com/stakater/Xposer/internal/pkg/routes"
+	"github.com/stakater/Xposer/internal/pkg/services"
 	"github.com/stakater/Xposer/internal/pkg/templates"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +47,7 @@ type Controller struct {
 
 // NewController A Constructor for the Controller to initialize the controller
 func NewController(clientset kubernetes.Interface, osClient *routeClient.RouteV1Client, conf config.Configuration, clusterType string, namespace string) *Controller {
+	namespace = "first-controller"
 	controller := &Controller{
 		clientset:   clientset,
 		osClient:    osClient,
@@ -57,7 +59,7 @@ func NewController(clientset kubernetes.Interface, osClient *routeClient.RouteV1
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	listWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), constants.SERVICES, namespace, fields.Everything())
 
-	indexer, informer := cache.NewIndexerInformer(listWatcher, &v1.Service{}, 0, cache.ResourceEventHandlerFuncs{
+	indexer, informer := cache.NewIndexerInformer(listWatcher, &v1.Service{}, 2*time.Second, cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.Add,    //function that is called when the object is created
 		UpdateFunc: controller.Update, //function that is called when the object is updated
 		DeleteFunc: controller.Delete, //function that is called when the object is deleted
@@ -180,49 +182,21 @@ func (c *Controller) serviceCreated(obj interface{}) {
 		forwardAnnotationsMap := make(map[string]string)
 		ingressConfig := structs.Map(c.config)
 
-		for annotationKey, annotationValue := range newServiceObject.ObjectMeta.Annotations {
-			if strings.HasPrefix(annotationKey, constants.INGRESS_ANNOTATIONS) {
-				ingressConfig[strings.SplitN(annotationKey, "/", 2)[1]] = annotationValue
-			}
-		}
+		// Overrides default annotains with annotations from new service object
+		ingressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(ingressConfig, newServiceObject)
 
 		// Adds "/" in URL Path, if user has entered path annotaion without "/"
-		if !strings.HasPrefix(ingressConfig[constants.INGRESS_URL_PATH].(string), "/") {
-			ingressConfig[constants.INGRESS_URL_PATH] = "/" + ingressConfig[constants.INGRESS_URL_PATH].(string)
-		}
+		ingressConfig = services.AppendsSlashInPathAnnotationIfNotPresent(ingressConfig)
 
-		/*
-			Removes the content after "/" from URL-Template, and if user has not specified path from annotation,
-			use the content after "/" as URL-Path
-		*/
-		if strings.Contains(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), "/") {
-			splittedURLTemplate := strings.SplitN(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), "/", 2)
-			ingressConfig[constants.INGRESS_URL_TEMPLATE] = splittedURLTemplate[0]
+		//	Removes the content after "/" from URL-Template, and if user has not specified path from annotation, use the content after "/" as URL-Path
+		ingressConfig = services.FormatURLTemplateAndDeriveURLPath(ingressConfig)
 
-			if ingressConfig[constants.INGRESS_URL_PATH].(string) == "/" {
-				ingressConfig[constants.INGRESS_URL_PATH] = ingressConfig[constants.INGRESS_URL_PATH].(string) + splittedURLTemplate[1]
-			}
-		}
+		// Creates a map of annotations to forward to Ingress
+		forwardAnnotationsMap = services.CreateForwardAnnotationsMap(splittedAnnotations)
 
-		for _, annotation := range splittedAnnotations {
-			parsedAnnotation := strings.Split(annotation, ":")
-			if len(parsedAnnotation) != 2 {
-				logrus.Errorf("Wrong annotation provided to forward to ingress : %v", annotation)
-			} else {
-				forwardAnnotationsMap[parsedAnnotation[0]] = strings.Trim(parsedAnnotation[1], " ")
-			}
-		}
-
-		urlTemplate := &templates.URLTemplate{
-			Service:   newServiceObject.Name,
-			Namespace: c.namespace,
-			Domain:    ingressConfig[constants.DOMAIN].(string),
-		}
-
-		nameTemplate := &templates.NameTemplate{
-			Service:   newServiceObject.Name,
-			Namespace: c.namespace,
-		}
+		// Generates URL Templates to parse Xposer Specific Annotations
+		urlTemplate := templates.CreateUrlTemplate(newServiceObject.Name, c.namespace, ingressConfig[constants.DOMAIN].(string))
+		nameTemplate := templates.CreateNameTemplate(newServiceObject.Name, c.namespace)
 
 		parsedURL := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), urlTemplate)
 		parsedURLPath := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_PATH].(string), urlTemplate)
@@ -276,8 +250,22 @@ func (c *Controller) serviceCreated(obj interface{}) {
 }
 func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 	logrus.Info("Handling a service updated event")
-	c.serviceDeleted(oldObj)
-	c.serviceCreated(newObj)
+	// newServiceObject := newObj.(*v1.Service)
+	// oldServiceObject := oldObj.(*v1.Service)
+	// oldIngressConfig := structs.Map(c.config)
+	// newIngressConfig := structs.Map(c.config)
+
+	// if newServiceObject.ObjectMeta.Labels["expose"] == "false" {
+	// 	c.serviceDeleted(oldObj)
+	// } else if 1 == 1 {
+
+	// }
+
+	// if oldServiceObject != newServiceObject {
+	// 	c.serviceDeleted(oldObj)
+	// 	c.serviceCreated(newObj)
+	// }
+
 }
 
 func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {

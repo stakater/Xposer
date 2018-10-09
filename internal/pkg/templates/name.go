@@ -14,6 +14,13 @@ type NameTemplate struct {
 	Namespace string
 }
 
+func CreateNameTemplate(service string, namespace string) *NameTemplate {
+	return &NameTemplate{
+		Service:   service,
+		Namespace: namespace,
+	}
+}
+
 func ParseIngressNameTemplate(templateToParse string, nameTemplate *NameTemplate) string {
 	var parsedTemplate bytes.Buffer
 	logrus.Infof("Template to parse: %v", templateToParse)

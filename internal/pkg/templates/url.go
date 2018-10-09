@@ -13,6 +13,14 @@ type URLTemplate struct {
 	Domain    string
 }
 
+func CreateUrlTemplate(service string, namespace string, domain string) *URLTemplate {
+	return &URLTemplate{
+		Service:   service,
+		Namespace: namespace,
+		Domain:    domain,
+	}
+}
+
 func ParseIngressURLOrPathTemplate(templateToParse string, URLTemplate *URLTemplate) string {
 	var parsedTemplate bytes.Buffer
 	logrus.Infof("Template to parse: %v", templateToParse)
