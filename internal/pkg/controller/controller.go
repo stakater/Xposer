@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -59,7 +58,7 @@ func NewController(clientset kubernetes.Interface, osClient *routeClient.RouteV1
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	listWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), constants.SERVICES, namespace, fields.Everything())
 
-	indexer, informer := cache.NewIndexerInformer(listWatcher, &v1.Service{}, 2*time.Second, cache.ResourceEventHandlerFuncs{
+	indexer, informer := cache.NewIndexerInformer(listWatcher, &v1.Service{}, constants.TEN_SECONDS, cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.Add,    //function that is called when the object is created
 		UpdateFunc: controller.Update, //function that is called when the object is updated
 		DeleteFunc: controller.Delete, //function that is called when the object is deleted
@@ -172,55 +171,58 @@ func (c *Controller) takeAction(event Event) error {
 
 	return nil
 }
+
+func (c *Controller) GenerateIngressInfoFromService(newServiceObject *v1.Service) ingresses.IngresInfo {
+	splittedAnnotations := strings.Split(string(newServiceObject.ObjectMeta.Annotations[constants.FORWARD_ANNOTATIONS]), "\n")
+	forwardAnnotationsMap := make(map[string]string)
+	ingressConfig := structs.Map(c.config)
+
+	// Overrides default annotains with annotations from new service object
+	ingressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(ingressConfig, newServiceObject)
+
+	// Adds "/" in URL Path, if user has entered path annotaion without "/"
+	ingressConfig = services.AppendsSlashInPathAnnotationIfNotPresent(ingressConfig)
+
+	//	Removes the content after "/" from URL-Template, and if user has not specified path from annotation, use the content after "/" as URL-Path
+	ingressConfig = services.FormatURLTemplateAndDeriveURLPath(ingressConfig)
+
+	// Creates a map of annotations to forward to Ingress
+	forwardAnnotationsMap = services.CreateForwardAnnotationsMap(splittedAnnotations)
+
+	// Generates URL Templates to parse Xposer Specific Annotations
+	urlTemplate := templates.CreateUrlTemplate(newServiceObject.Name, c.namespace, ingressConfig[constants.DOMAIN].(string))
+	nameTemplate := templates.CreateNameTemplate(newServiceObject.Name, c.namespace)
+
+	parsedURL := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), urlTemplate)
+	parsedURLPath := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_PATH].(string), urlTemplate)
+	parsedIngressName := templates.ParseIngressNameTemplate(ingressConfig[constants.INGRESS_NAME_TEMPLATE].(string), nameTemplate)
+
+	return ingresses.IngresInfo{
+		IngressName:           parsedIngressName,
+		Namespace:             c.namespace,
+		ForwardAnnotationsMap: forwardAnnotationsMap,
+		IngressHost:           parsedURL,
+		IngressPath:           parsedURLPath,
+		ServiceName:           newServiceObject.Name,
+		ServicePort:           getServicePortFromEvent(newServiceObject),
+		AddTLS:                ingresses.ShouldAddTLSToIngress(ingressConfig, c.config.TLS),
+	}
+}
+
 func (c *Controller) serviceCreated(obj interface{}) {
 	logrus.Info("Handling a new service created event")
 	newServiceObject := obj.(*v1.Service)
 
 	// Label for wether to create an ingress for this service or not
 	if newServiceObject.ObjectMeta.Labels["expose"] == "true" {
-		splittedAnnotations := strings.Split(string(newServiceObject.ObjectMeta.Annotations[constants.FORWARD_ANNOTATIONS]), "\n")
-		forwardAnnotationsMap := make(map[string]string)
-		ingressConfig := structs.Map(c.config)
-
-		// Overrides default annotains with annotations from new service object
-		ingressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(ingressConfig, newServiceObject)
-
-		// Adds "/" in URL Path, if user has entered path annotaion without "/"
-		ingressConfig = services.AppendsSlashInPathAnnotationIfNotPresent(ingressConfig)
-
-		//	Removes the content after "/" from URL-Template, and if user has not specified path from annotation, use the content after "/" as URL-Path
-		ingressConfig = services.FormatURLTemplateAndDeriveURLPath(ingressConfig)
-
-		// Creates a map of annotations to forward to Ingress
-		forwardAnnotationsMap = services.CreateForwardAnnotationsMap(splittedAnnotations)
-
-		// Generates URL Templates to parse Xposer Specific Annotations
-		urlTemplate := templates.CreateUrlTemplate(newServiceObject.Name, c.namespace, ingressConfig[constants.DOMAIN].(string))
-		nameTemplate := templates.CreateNameTemplate(newServiceObject.Name, c.namespace)
-
-		parsedURL := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), urlTemplate)
-		parsedURLPath := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_PATH].(string), urlTemplate)
-		parsedIngressName := templates.ParseIngressNameTemplate(ingressConfig[constants.INGRESS_NAME_TEMPLATE].(string), nameTemplate)
+		ingressInfo := c.GenerateIngressInfoFromService(newServiceObject)
 
 		if c.clusterType == constants.KUBERNETES {
-			ingress := ingresses.CreateIngress(parsedIngressName, c.namespace, forwardAnnotationsMap, parsedURL,
-				parsedURLPath, newServiceObject.Name, getServicePortFromEvent(newServiceObject))
-
-			switch tlsSwitch := ingressConfig[constants.TLS].(type) {
-			case string:
-				tls, err := strconv.ParseBool(tlsSwitch)
-				if err != nil {
-					logrus.Warnf("The value of TLS annotation is wrong. It should only be true or false. Reverting to default value: %v", c.config.TLS)
-					ingressConfig[constants.TLS] = c.config.TLS
-				} else {
-					ingressConfig[constants.TLS] = tls
-				}
-				break
-			}
-
-			if ingressConfig[constants.TLS] == true {
+			ingress := ingresses.CreateIngressFromIngressInfo(ingressInfo)
+			// Adds TLS for cert-manager if specified via annotations
+			if ingressInfo.AddTLS == true {
 				logrus.Info("Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
-				ingress = ingresses.AddTLSInfoToIngress(*ingress, parsedIngressName, parsedURL)
+				ingress = ingresses.AddTLSInfoToIngress(*ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
 			}
 
 			result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Create(ingress)
@@ -232,8 +234,8 @@ func (c *Controller) serviceCreated(obj interface{}) {
 		}
 
 		if c.clusterType == constants.OPENSHIFT {
-			route := routes.CreateRoute(parsedIngressName, c.namespace, forwardAnnotationsMap, parsedURL,
-				parsedURLPath, newServiceObject.Name, getServicePortFromEvent(newServiceObject))
+			route := routes.CreateRoute(ingressInfo.IngressName, ingressInfo.Namespace, ingressInfo.ForwardAnnotationsMap,
+				ingressInfo.IngressHost, ingressInfo.IngressPath, ingressInfo.ServiceName, ingressInfo.ServicePort)
 
 			result, err := c.osClient.Routes(c.namespace).Create(route)
 
@@ -248,24 +250,57 @@ func (c *Controller) serviceCreated(obj interface{}) {
 		logrus.Info("Service does not contain expose label, so not creating an Ingress for it")
 	}
 }
+
 func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
-	logrus.Info("Handling a service updated event")
-	// newServiceObject := newObj.(*v1.Service)
-	// oldServiceObject := oldObj.(*v1.Service)
-	// oldIngressConfig := structs.Map(c.config)
-	// newIngressConfig := structs.Map(c.config)
+	newServiceObject := newObj.(*v1.Service)
+	oldServiceObject := oldObj.(*v1.Service)
+	// Get All Ingresses, to fetch Ingress associated with old service
+	ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
+	}
+	oldIngressObject := ingresses.GetIngressFromListMatchingGivenServiceName(ingressList, oldServiceObject.Name)
 
-	// if newServiceObject.ObjectMeta.Labels["expose"] == "false" {
-	// 	c.serviceDeleted(oldObj)
-	// } else if 1 == 1 {
+	// Get Ingress Annotations for both old & new service objects
+	oldIngressConfig := structs.Map(c.config)
+	oldIngressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(oldIngressConfig, oldServiceObject)
 
-	// }
+	newIngressConfig := structs.Map(c.config)
+	newIngressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(newIngressConfig, newServiceObject)
+
+	if newServiceObject.ObjectMeta.Labels["expose"] == "false" {
+		logrus.Info("Expose label is false in service update request, deleting existing ingress")
+		c.serviceDeleted(oldObj)
+	} else if ingresses.IsEmpty(oldIngressObject) {
+		logrus.Info("Old Ingress not found, so creating a new Ingress")
+		c.serviceCreated(newObj)
+	} else if oldIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) != newIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) {
+		logrus.Info("Old service's Ingress Name template is different from new Service's Ingress Name Template. So deleting and re-creating Ingress in this case")
+		c.serviceDeleted(oldObj)
+		c.serviceCreated(newObj)
+	} else {
+		if oldServiceObject != newServiceObject {
+			ingressInfo := c.GenerateIngressInfoFromService(newServiceObject)
+			ingress := ingresses.CreateIngressFromIngressInfo(ingressInfo)
+
+			if ingressInfo.AddTLS == true {
+				logrus.Info("Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
+				ingress = ingresses.AddTLSInfoToIngress(*ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
+			}
+
+			result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Update(ingress)
+			if err != nil {
+				logrus.Errorf("Error while Updating Ingress: %v", err)
+			} else {
+				logrus.Infof("Successfully updated an Ingress with name: %v", result.Name)
+			}
+		}
+	}
 
 	// if oldServiceObject != newServiceObject {
 	// 	c.serviceDeleted(oldObj)
 	// 	c.serviceCreated(newObj)
 	// }
-
 }
 
 func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
