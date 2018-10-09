@@ -23,7 +23,7 @@ func GetIngressFromListMatchingGivenServiceName(ingressList *v1beta1.IngressList
 	return matchedIngress
 }
 
-func AddTLSInfoToIngress(ingress v1beta1.Ingress, ingressName string, ingressHost string) v1beta1.Ingress {
+func AddTLSInfoToIngress(ingress v1beta1.Ingress, ingressName string, ingressHost string) *v1beta1.Ingress {
 	ingress.Spec.TLS = []v1beta1.IngressTLS{
 		v1beta1.IngressTLS{
 			Hosts:      []string{ingressHost},
@@ -31,7 +31,7 @@ func AddTLSInfoToIngress(ingress v1beta1.Ingress, ingressName string, ingressHos
 		},
 	}
 
-	return ingress
+	return &ingress
 }
 
 func CreateIngress(parsedIngressName string, namespace string, forwardAnnotationsMap map[string]string,

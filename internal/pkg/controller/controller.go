@@ -246,7 +246,7 @@ func (c *Controller) serviceCreated(obj interface{}) {
 
 			if ingressConfig[constants.TLS] == true {
 				logrus.Info("Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
-				ingresses.AddTLSInfoToIngress(*ingress, parsedIngressName, parsedURL)
+				ingress = ingresses.AddTLSInfoToIngress(*ingress, parsedIngressName, parsedURL)
 			}
 
 			result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Create(ingress)
