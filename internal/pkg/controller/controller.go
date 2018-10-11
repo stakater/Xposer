@@ -267,23 +267,24 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 	newIngressConfig := structs.Map(c.config)
 	newIngressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(newIngressConfig, newServiceObject)
 
-	if newServiceObject.ObjectMeta.Labels["expose"] == "false" {
-		logrus.Info("Expose label is false in service update request, deleting existing ingress")
-		c.serviceDeleted(oldObj)
-	} else if ingresses.IsEmpty(oldIngressObject) {
-		logrus.Info("Old Ingress not found, so creating a new Ingress")
-		c.serviceCreated(newObj)
-	} else if oldIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) != newIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) {
-		logrus.Info("Old service's Ingress Name template is different from new Service's Ingress Name Template. So deleting and re-creating Ingress in this case")
-		c.serviceDeleted(oldObj)
-		c.serviceCreated(newObj)
-	} else {
-		if oldServiceObject != newServiceObject {
+	if oldServiceObject != newServiceObject {
+		if newServiceObject.ObjectMeta.Labels["expose"] == "false" {
+			logrus.Info("Expose label is false in service update request, deleting existing ingress")
+			c.serviceDeleted(oldObj)
+		} else if ingresses.IsEmpty(oldIngressObject) {
+			logrus.Info("Old Ingress not found, so creating a new Ingress")
+			c.serviceCreated(newObj)
+		} else if oldIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) != newIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) {
+			logrus.Info("Old service's Ingress Name template is different from new Service's Ingress Name Template. So deleting and re-creating Ingress in this case")
+			c.serviceDeleted(oldObj)
+			c.serviceCreated(newObj)
+		} else {
+			logrus.Infof("Updating Ingress: %v", oldIngressObject.Name)
 			ingressInfo := c.GenerateIngressInfoFromService(newServiceObject)
 			ingress := ingresses.CreateIngressFromIngressInfo(ingressInfo)
 
 			if ingressInfo.AddTLS == true {
-				logrus.Info("Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
+				logrus.Info("Updated Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
 				ingress = ingresses.AddTLSInfoToIngress(*ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
 			}
 
@@ -291,15 +292,10 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 			if err != nil {
 				logrus.Errorf("Error while Updating Ingress: %v", err)
 			} else {
-				logrus.Infof("Successfully updated an Ingress with name: %v", result.Name)
+				logrus.Infof("Successfully updated an Ingress with name: %v, for service: %v", result.Name, result.Spec.Backend.ServiceName)
 			}
 		}
 	}
-
-	// if oldServiceObject != newServiceObject {
-	// 	c.serviceDeleted(oldObj)
-	// 	c.serviceCreated(newObj)
-	// }
 }
 
 func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {

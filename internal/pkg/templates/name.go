@@ -27,11 +27,11 @@ func ParseIngressNameTemplate(templateToParse string, nameTemplate *NameTemplate
 
 	tmplURL, err := template.New(constants.INGRESS_NAME_TEMPLATE).Parse(templateToParse)
 	if err != nil {
-		logrus.Panic(err)
+		logrus.Errorf("Can not parse the following template : %v, with error: %v", templateToParse, err)
 	}
 	err = tmplURL.Execute(&parsedTemplate, nameTemplate)
 	if err != nil {
-		logrus.Panic(err)
+		logrus.Errorf("Can not execute template parsing for: %v, with error: %v", nameTemplate, err)
 	}
 	logrus.Infof("Parsed template: %v", parsedTemplate.String())
 

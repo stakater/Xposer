@@ -47,7 +47,7 @@ func startXposer(cmd *cobra.Command, args []string) {
 		clusterType = constants.OPENSHIFT
 		osClient, err = routeClient.NewForConfig(cfg)
 		if err != nil {
-			logrus.Panic(err.Error())
+			logrus.Errorf("Can not create Openshift client with error: %v", err.Error())
 		}
 	}
 
@@ -91,7 +91,7 @@ func getControllerConfig() config.Configuration {
 
 	configuration, err := config.ReadConfig(configFilePath)
 	if err != nil {
-		logrus.Panic(err)
+		logrus.Errorf("Can not read configuration file with the following error: %v", err)
 	}
 	return configuration
 }
