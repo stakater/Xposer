@@ -46,6 +46,7 @@ type Controller struct {
 
 // NewController A Constructor for the Controller to initialize the controller
 func NewController(clientset kubernetes.Interface, osClient *routeClient.RouteV1Client, conf config.Configuration, clusterType string, namespace string) *Controller {
+	namespace = "lab"
 	controller := &Controller{
 		clientset:   clientset,
 		osClient:    osClient,
@@ -209,8 +210,8 @@ func (c *Controller) GenerateIngressInfoFromService(newServiceObject *v1.Service
 }
 
 func (c *Controller) serviceCreated(obj interface{}) {
-	logrus.Info("Handling a new service created event")
 	newServiceObject := obj.(*v1.Service)
+	logrus.Info("Service create event for the following service: %v", newServiceObject.Name)
 
 	// Label for wether to create an ingress for this service or not
 	if newServiceObject.ObjectMeta.Labels["expose"] == "true" {
@@ -226,7 +227,7 @@ func (c *Controller) serviceCreated(obj interface{}) {
 
 			result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Create(ingress)
 			if err != nil {
-				logrus.Errorf("Error while creating Ingress: %v", err)
+				logrus.Warnf("Can not create new Ingress: %v", err)
 			} else {
 				logrus.Infof("Successfully created an Ingress with name: %v", result.Name)
 			}
@@ -246,70 +247,91 @@ func (c *Controller) serviceCreated(obj interface{}) {
 		}
 
 	} else {
-		logrus.Info("Service does not contain expose label, so not creating an Ingress for it")
+		logrus.Infof("Service: %v, doesnt not contain expose = true label, so not creating an ingress for it", newServiceObject.Name)
 	}
 }
 
 func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 	newServiceObject := newObj.(*v1.Service)
 	oldServiceObject := oldObj.(*v1.Service)
-	// Get All Ingresses, to fetch Ingress associated with old service
-	ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).List(meta_v1.ListOptions{})
-	if err != nil {
-		logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
-	}
-	oldIngressObject := ingresses.GetIngressFromListMatchingGivenServiceName(ingressList, oldServiceObject.Name)
-
-	// Get Ingress Annotations for both old & new service objects
-	oldIngressConfig := structs.Map(c.config)
-	oldIngressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(oldIngressConfig, oldServiceObject)
-
-	newIngressConfig := structs.Map(c.config)
-	newIngressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(newIngressConfig, newServiceObject)
 
 	if oldServiceObject != newServiceObject {
-		if newServiceObject.ObjectMeta.Labels["expose"] == "false" {
-			logrus.Info("Expose label is false in service update request, deleting existing ingress")
-			c.serviceDeleted(oldObj)
-		} else if ingresses.IsEmpty(oldIngressObject) {
-			logrus.Info("Old Ingress not found, so creating a new Ingress")
-			c.serviceCreated(newObj)
-		} else if oldIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) != newIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) {
-			logrus.Info("Old service's Ingress Name template is different from new Service's Ingress Name Template. So deleting and re-creating Ingress in this case")
-			c.serviceDeleted(oldObj)
+		if newServiceObject.ObjectMeta.Labels["expose"] == "true" && oldServiceObject.ObjectMeta.Labels["expose"] == "true" {
+			oldIngressConfig := structs.Map(c.config)
+			oldIngressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(oldIngressConfig, oldServiceObject)
+
+			newIngressConfig := structs.Map(c.config)
+			newIngressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(newIngressConfig, newServiceObject)
+
+			if oldIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) != newIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) {
+				logrus.Info("Old service's Ingress Name template is different from new Service's Ingress Name Template. So deleting and re-creating Ingress in this case")
+				c.serviceDeleted(oldObj)
+				c.serviceCreated(newObj)
+			} else {
+				logrus.Infof("Updating Ingress for service: %v", newServiceObject.Name)
+				ingressInfo := c.GenerateIngressInfoFromService(newServiceObject)
+				ingress := ingresses.CreateIngressFromIngressInfo(ingressInfo)
+
+				if ingressInfo.AddTLS == true {
+					logrus.Info("Updated Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
+					ingress = ingresses.AddTLSInfoToIngress(*ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
+				}
+
+				result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Update(ingress)
+				if err != nil {
+					logrus.Errorf("Error while Updating Ingress: %v", err)
+				} else {
+					logrus.Infof("Successfully updated an Ingress with name: %v, for service: %v", result.Name, result.Spec.Backend.ServiceName)
+				}
+			}
+		} else {
+			if newServiceObject.ObjectMeta.Labels["expose"] == "false" {
+				logrus.Infof("Expose label is false in updated service: %v, deleting existing ingress", newServiceObject.Name)
+				c.serviceDeleted(oldObj)
+			}
+
+			if newServiceObject.ObjectMeta.Labels["expose"] == "true" {
+				logrus.Infof("Expose label is true in updated service: %v, so creating a new Ingress", newServiceObject.Name)
+				c.serviceCreated(newObj)
+			}
+		}
+	} else {
+		ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).List(meta_v1.ListOptions{})
+		if err != nil {
+			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
+		}
+		existingIngress := ingresses.GetIngressFromListMatchingGivenServiceName(ingressList, newServiceObject.Name)
+		if ingresses.IsEmpty(existingIngress) {
+			logrus.Infof("Ingress not found for the following service: %v, so creating it", newServiceObject.Name)
 			c.serviceCreated(newObj)
 		} else {
-			logrus.Infof("Updating Ingress: %v", oldIngressObject.Name)
-			ingressInfo := c.GenerateIngressInfoFromService(newServiceObject)
-			ingress := ingresses.CreateIngressFromIngressInfo(ingressInfo)
-
-			if ingressInfo.AddTLS == true {
-				logrus.Info("Updated Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
-				ingress = ingresses.AddTLSInfoToIngress(*ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
-			}
-
-			result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Update(ingress)
-			if err != nil {
-				logrus.Errorf("Error while Updating Ingress: %v", err)
-			} else {
-				logrus.Infof("Successfully updated an Ingress with name: %v, for service: %v", result.Name, result.Spec.Backend.ServiceName)
-			}
+			logrus.Info("Ingresses exist for the service: %v", newServiceObject.Name)
 		}
 	}
 }
 
 func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
-	logrus.Info("Handling a service deleted event")
 	serviceToDelete := deletedServiceObject.(*v1.Service)
+	logrus.Info("Service delete event for the following service: %v", serviceToDelete.Name)
 
-	ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).List(meta_v1.ListOptions{})
-	if err != nil {
-		logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
+	// Only delete ingress if the service had expose = true label
+	if serviceToDelete.ObjectMeta.Labels["expose"] == "true" {
+
+		ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).List(meta_v1.ListOptions{})
+		if err != nil {
+			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
+		}
+
+		ingressToRemove := ingresses.GetIngressFromListMatchingGivenServiceName(ingressList, serviceToDelete.Name)
+		err = c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Delete(ingressToRemove.ObjectMeta.Name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			logrus.Warnf("Ingress not deleted with name: %v", ingressToRemove.ObjectMeta.Name)
+		} else {
+			logrus.Infof("Ingress Deleted with name: %v", ingressToRemove.ObjectMeta.Name)
+		}
+	} else {
+		logrus.Infof("Deleted service: %v, did not had label expose = true, so not deleting Ingress")
 	}
-
-	ingressToRemove := ingresses.GetIngressFromListMatchingGivenServiceName(ingressList, serviceToDelete.Name)
-	c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Delete(ingressToRemove.ObjectMeta.Name, &meta_v1.DeleteOptions{})
-	logrus.Infof("Ingress Deleted with name: %v", ingressToRemove.ObjectMeta.Name)
 }
 
 func getServicePortFromEvent(service *v1.Service) int {

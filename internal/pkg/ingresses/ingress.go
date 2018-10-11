@@ -21,25 +21,26 @@ type IngresInfo struct {
 	AddTLS                bool
 }
 
-func GetIngressFromListMatchingGivenServiceName(ingressList *v1beta1.IngressList, serviceName string) v1beta1.Ingress {
-	var matchedIngress v1beta1.Ingress
-
-	for _, ingress := range ingressList.Items {
-		if ingress.Spec.Backend.ServiceName == serviceName {
-			matchedIngress = ingress
-			break
-		}
-	}
-
-	return matchedIngress
-}
-
 func IsEmpty(ingress v1beta1.Ingress) bool {
 	if ingress.Name == "" {
 		return true
 	}
 
 	return false
+}
+
+func GetIngressFromListMatchingGivenServiceName(ingressList *v1beta1.IngressList, serviceName string) v1beta1.Ingress {
+	var matchedIngress v1beta1.Ingress
+
+	for _, ingress := range ingressList.Items {
+
+		if ingress.Spec.Backend != nil && ingress.Spec.Backend.ServiceName == serviceName {
+			matchedIngress = ingress
+			break
+		}
+	}
+
+	return matchedIngress
 }
 
 func AddTLSInfoToIngress(ingress v1beta1.Ingress, ingressName string, ingressHost string) *v1beta1.Ingress {
