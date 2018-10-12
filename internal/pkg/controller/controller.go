@@ -46,7 +46,6 @@ type Controller struct {
 
 // NewController A Constructor for the Controller to initialize the controller
 func NewController(clientset kubernetes.Interface, osClient *routeClient.RouteV1Client, conf config.Configuration, clusterType string, namespace string) *Controller {
-	namespace = "lab"
 	controller := &Controller{
 		clientset:   clientset,
 		osClient:    osClient,
