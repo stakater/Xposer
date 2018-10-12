@@ -2,6 +2,7 @@ package config
 
 import (
 	"io/ioutil"
+	"os"
 
 	"github.com/sirupsen/logrus"
 
@@ -49,4 +50,17 @@ func WriteConfig(config Configuration, path string) error {
 	}
 
 	return nil
+}
+
+func GetControllerConfig() Configuration {
+	configFilePath := os.Getenv("CONFIG_FILE_PATH")
+	if len(configFilePath) == 0 {
+		configFilePath = "configs/config.yaml"
+	}
+
+	configuration, err := ReadConfig(configFilePath)
+	if err != nil {
+		logrus.Errorf("Can not read configuration file with the following error: %v", err)
+	}
+	return configuration
 }

@@ -12,11 +12,11 @@ spec:
   revisionHistoryLimit: 2
   selector:
     matchLabels:
-{{ include "labels.selector" . | indent 6 }}
+{{ include "xposer-labels.selector" . | indent 6 }}
   template:
     metadata:
       labels:
-{{ include "labels.selector" . | indent 8 }}
+{{ include "xposer-labels.selector" . | indent 8 }}
     spec:
       containers:
       - env:
@@ -28,13 +28,13 @@ spec:
           value: {{ .Values.xposer.configFilePath }}
         image: "{{ .Values.xposer.image.name }}:{{ .Values.xposer.image.tag }}"
         imagePullPolicy: {{ .Values.xposer.image.pullPolicy }}
-        name: {{ template "name" . }}
+        name: {{ template "xposer-name" . }}
         volumeMounts:
         - mountPath: /configs
           name: config-volume
-      serviceAccountName: {{ template "name" . }}
+      serviceAccountName: {{ template "xposer-name" . }}
       volumes:
       - configMap:
-          name: {{ template "name" . }}
+          name: {{ template "xposer-name" . }}
         name: config-volume
               

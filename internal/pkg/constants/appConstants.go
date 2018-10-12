@@ -11,5 +11,5 @@ const (
 	SERVICES       = "services"
 	DOMAIN         = "Domain"
 	CERT           = "-cert"
-	TEN_SECONDS    = 10 * time.Second
+	RESYNC_PERIOD  = 10 * time.Second
 )

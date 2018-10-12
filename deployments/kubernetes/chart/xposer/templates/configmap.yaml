@@ -2,9 +2,9 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   labels:
-{{ include "labels.stakater" . | indent 4 }}
-{{ include "labels.chart" . | indent 4 }}
-  name: {{ template "name" . }}
+{{ include "xposer-labels.stakater" . | indent 4 }}
+{{ include "xposer-labels.chart" . | indent 4 }}
+  name: {{ template "xposer-name" . }}
 data:
   config.yaml: |-
     domain: {{ .Values.xposer.config.domain }}

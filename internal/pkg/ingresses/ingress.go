@@ -10,72 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-type IngresInfo struct {
-	IngressName           string
-	Namespace             string
-	ForwardAnnotationsMap map[string]string
-	IngressHost           string
-	IngressPath           string
-	ServiceName           string
-	ServicePort           int
-	AddTLS                bool
-}
-
-func IsEmpty(ingress v1beta1.Ingress) bool {
-	if ingress.Name == "" {
-		return true
-	}
-
-	return false
-}
-
-func GetIngressFromListMatchingGivenServiceName(ingressList *v1beta1.IngressList, serviceName string) v1beta1.Ingress {
-	var matchedIngress v1beta1.Ingress
-
-	for _, ingress := range ingressList.Items {
-
-		if ingress.Spec.Backend != nil && ingress.Spec.Backend.ServiceName == serviceName {
-			matchedIngress = ingress
-			break
-		}
-	}
-
-	return matchedIngress
-}
-
-func AddTLSInfoToIngress(ingress v1beta1.Ingress, ingressName string, ingressHost string) *v1beta1.Ingress {
-	ingress.Spec.TLS = []v1beta1.IngressTLS{
-		v1beta1.IngressTLS{
-			Hosts:      []string{ingressHost},
-			SecretName: ingressName + constants.CERT,
-		},
-	}
-
-	return &ingress
-}
-
-func ShouldAddTLSToIngress(ingressConfig map[string]interface{}, defaultTLS bool) bool {
-	switch tlsSwitch := ingressConfig[constants.TLS].(type) {
-	case string:
-		tls, err := strconv.ParseBool(tlsSwitch)
-		if err != nil {
-			logrus.Warnf("The value of TLS annotation is wrong. It should only be true or false. Reverting to default value: %v", defaultTLS)
-			ingressConfig[constants.TLS] = defaultTLS
-		} else {
-			ingressConfig[constants.TLS] = tls
-		}
-		break
-	}
-
-	if ingressConfig[constants.TLS] == true {
-		return true
-	}
-
-	return false
-}
-
-func CreateIngressFromIngressInfo(ingresInfo IngresInfo) *v1beta1.Ingress {
-
+func CreateFromIngressInfo(ingresInfo IngressInfo) *v1beta1.Ingress {
 	return &v1beta1.Ingress{
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:        ingresInfo.IngressName,
@@ -107,4 +42,55 @@ func CreateIngressFromIngressInfo(ingresInfo IngresInfo) *v1beta1.Ingress {
 			},
 		},
 	}
+}
+
+func IsEmpty(ingress v1beta1.Ingress) bool {
+	if ingress.Name == "" {
+		return true
+	}
+
+	return false
+}
+
+func GetFromListMatchingGivenServiceName(ingressList *v1beta1.IngressList, serviceName string) v1beta1.Ingress {
+	var matchedIngress v1beta1.Ingress
+
+	for _, ingress := range ingressList.Items {
+
+		if ingress.Spec.Backend != nil && ingress.Spec.Backend.ServiceName == serviceName {
+			matchedIngress = ingress
+			break
+		}
+	}
+
+	return matchedIngress
+}
+
+func AddTLSInfo(ingress *v1beta1.Ingress, ingressName string, ingressHost string) {
+	ingress.Spec.TLS = []v1beta1.IngressTLS{
+		v1beta1.IngressTLS{
+			Hosts:      []string{ingressHost},
+			SecretName: ingressName + constants.CERT,
+		},
+	}
+}
+
+func ShouldAddTLS(ingressConfig map[string]interface{}, defaultTLS bool) bool {
+	switch tlsSwitch := ingressConfig[constants.TLS].(type) {
+	case string:
+		tls, err := strconv.ParseBool(tlsSwitch)
+		if err != nil {
+			logrus.Warnf("The value of TLS annotation is wrong. It should only be true or false. Reverting to default value: %v", defaultTLS)
+			ingressConfig[constants.TLS] = defaultTLS
+		} else {
+			ingressConfig[constants.TLS] = tls
+		}
+		break
+	}
+
+	if ingressConfig[constants.TLS] == true {
+		return true
+	}
+
+	return false
 }

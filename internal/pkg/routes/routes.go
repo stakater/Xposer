@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func CreateRoute(routeName string, namespace string, forwardAnnotationsMap map[string]string,
+func Create(routeName string, namespace string, forwardAnnotationsMap map[string]string,
 	routeHost string, routePath string, serviceName string, servicePort int) *osV1.Route {
 	return &osV1.Route{
 		ObjectMeta: meta_v1.ObjectMeta{

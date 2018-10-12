@@ -2,18 +2,15 @@ package controller
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/fatih/structs"
 	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	"github.com/sirupsen/logrus"
-	"github.com/stakater/Xposer/internal/pkg/config"
+	config "github.com/stakater/Xposer/internal/pkg/config"
 	"github.com/stakater/Xposer/internal/pkg/constants"
 	"github.com/stakater/Xposer/internal/pkg/ingresses"
 	"github.com/stakater/Xposer/internal/pkg/routes"
-	"github.com/stakater/Xposer/internal/pkg/services"
-	"github.com/stakater/Xposer/internal/pkg/templates"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -46,6 +43,7 @@ type Controller struct {
 
 // NewController A Constructor for the Controller to initialize the controller
 func NewController(clientset kubernetes.Interface, osClient *routeClient.RouteV1Client, conf config.Configuration, clusterType string, namespace string) *Controller {
+	namespace = "first-controller"
 	controller := &Controller{
 		clientset:   clientset,
 		osClient:    osClient,
@@ -57,7 +55,7 @@ func NewController(clientset kubernetes.Interface, osClient *routeClient.RouteV1
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	listWatcher := cache.NewListWatchFromClient(clientset.CoreV1().RESTClient(), constants.SERVICES, namespace, fields.Everything())
 
-	indexer, informer := cache.NewIndexerInformer(listWatcher, &v1.Service{}, constants.TEN_SECONDS, cache.ResourceEventHandlerFuncs{
+	indexer, informer := cache.NewIndexerInformer(listWatcher, &v1.Service{}, constants.RESYNC_PERIOD, cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.Add,    //function that is called when the object is created
 		UpdateFunc: controller.Update, //function that is called when the object is updated
 		DeleteFunc: controller.Delete, //function that is called when the object is deleted
@@ -171,57 +169,20 @@ func (c *Controller) takeAction(event Event) error {
 	return nil
 }
 
-func (c *Controller) GenerateIngressInfoFromService(newServiceObject *v1.Service) ingresses.IngresInfo {
-	splittedAnnotations := strings.Split(string(newServiceObject.ObjectMeta.Annotations[constants.FORWARD_ANNOTATIONS]), "\n")
-	forwardAnnotationsMap := make(map[string]string)
-	ingressConfig := structs.Map(c.config)
-
-	// Overrides default annotains with annotations from new service object
-	ingressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(ingressConfig, newServiceObject)
-
-	// Adds "/" in URL Path, if user has entered path annotaion without "/"
-	ingressConfig = services.AppendsSlashInPathAnnotationIfNotPresent(ingressConfig)
-
-	//	Removes the content after "/" from URL-Template, and if user has not specified path from annotation, use the content after "/" as URL-Path
-	ingressConfig = services.FormatURLTemplateAndDeriveURLPath(ingressConfig)
-
-	// Creates a map of annotations to forward to Ingress
-	forwardAnnotationsMap = services.CreateForwardAnnotationsMap(splittedAnnotations)
-
-	// Generates URL Templates to parse Xposer Specific Annotations
-	urlTemplate := templates.CreateUrlTemplate(newServiceObject.Name, c.namespace, ingressConfig[constants.DOMAIN].(string))
-	nameTemplate := templates.CreateNameTemplate(newServiceObject.Name, c.namespace)
-
-	parsedURL := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), urlTemplate)
-	parsedURLPath := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_PATH].(string), urlTemplate)
-	parsedIngressName := templates.ParseIngressNameTemplate(ingressConfig[constants.INGRESS_NAME_TEMPLATE].(string), nameTemplate)
-
-	return ingresses.IngresInfo{
-		IngressName:           parsedIngressName,
-		Namespace:             c.namespace,
-		ForwardAnnotationsMap: forwardAnnotationsMap,
-		IngressHost:           parsedURL,
-		IngressPath:           parsedURLPath,
-		ServiceName:           newServiceObject.Name,
-		ServicePort:           getServicePortFromEvent(newServiceObject),
-		AddTLS:                ingresses.ShouldAddTLSToIngress(ingressConfig, c.config.TLS),
-	}
-}
-
 func (c *Controller) serviceCreated(obj interface{}) {
 	newServiceObject := obj.(*v1.Service)
 	logrus.Info("Service create event for the following service: %v", newServiceObject.Name)
 
 	// Label for wether to create an ingress for this service or not
 	if newServiceObject.ObjectMeta.Labels["expose"] == "true" {
-		ingressInfo := c.GenerateIngressInfoFromService(newServiceObject)
+		ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config, c.namespace)
 
 		if c.clusterType == constants.KUBERNETES {
-			ingress := ingresses.CreateIngressFromIngressInfo(ingressInfo)
+			ingress := ingresses.CreateFromIngressInfo(ingressInfo)
 			// Adds TLS for cert-manager if specified via annotations
 			if ingressInfo.AddTLS == true {
 				logrus.Info("Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
-				ingress = ingresses.AddTLSInfoToIngress(*ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
+				ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
 			}
 
 			result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Create(ingress)
@@ -233,7 +194,7 @@ func (c *Controller) serviceCreated(obj interface{}) {
 		}
 
 		if c.clusterType == constants.OPENSHIFT {
-			route := routes.CreateRoute(ingressInfo.IngressName, ingressInfo.Namespace, ingressInfo.ForwardAnnotationsMap,
+			route := routes.Create(ingressInfo.IngressName, ingressInfo.Namespace, ingressInfo.ForwardAnnotationsMap,
 				ingressInfo.IngressHost, ingressInfo.IngressPath, ingressInfo.ServiceName, ingressInfo.ServicePort)
 
 			result, err := c.osClient.Routes(c.namespace).Create(route)
@@ -257,10 +218,10 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 	if oldServiceObject != newServiceObject {
 		if newServiceObject.ObjectMeta.Labels["expose"] == "true" && oldServiceObject.ObjectMeta.Labels["expose"] == "true" {
 			oldIngressConfig := structs.Map(c.config)
-			oldIngressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(oldIngressConfig, oldServiceObject)
+			oldIngressConfig = config.ReplaceDefaultConfigWithProvidedServiceConfig(oldIngressConfig, oldServiceObject)
 
 			newIngressConfig := structs.Map(c.config)
-			newIngressConfig = services.ReplaceAnnotationsInMapWithProvidedServiceAnnotations(newIngressConfig, newServiceObject)
+			newIngressConfig = config.ReplaceDefaultConfigWithProvidedServiceConfig(newIngressConfig, newServiceObject)
 
 			if oldIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) != newIngressConfig[constants.INGRESS_NAME_TEMPLATE].(string) {
 				logrus.Info("Old service's Ingress Name template is different from new Service's Ingress Name Template. So deleting and re-creating Ingress in this case")
@@ -268,12 +229,12 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 				c.serviceCreated(newObj)
 			} else {
 				logrus.Infof("Updating Ingress for service: %v", newServiceObject.Name)
-				ingressInfo := c.GenerateIngressInfoFromService(newServiceObject)
-				ingress := ingresses.CreateIngressFromIngressInfo(ingressInfo)
+				ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config, c.namespace)
+				ingress := ingresses.CreateFromIngressInfo(ingressInfo)
 
 				if ingressInfo.AddTLS == true {
 					logrus.Info("Updated Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
-					ingress = ingresses.AddTLSInfoToIngress(*ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
+					ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
 				}
 
 				result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Update(ingress)
@@ -299,7 +260,7 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 		if err != nil {
 			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
 		}
-		existingIngress := ingresses.GetIngressFromListMatchingGivenServiceName(ingressList, newServiceObject.Name)
+		existingIngress := ingresses.GetFromListMatchingGivenServiceName(ingressList, newServiceObject.Name)
 		if ingresses.IsEmpty(existingIngress) {
 			logrus.Infof("Ingress not found for the following service: %v, so creating it", newServiceObject.Name)
 			c.serviceCreated(newObj)
@@ -321,7 +282,7 @@ func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
 			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
 		}
 
-		ingressToRemove := ingresses.GetIngressFromListMatchingGivenServiceName(ingressList, serviceToDelete.Name)
+		ingressToRemove := ingresses.GetFromListMatchingGivenServiceName(ingressList, serviceToDelete.Name)
 		err = c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Delete(ingressToRemove.ObjectMeta.Name, &meta_v1.DeleteOptions{})
 		if err != nil {
 			logrus.Warnf("Ingress not deleted with name: %v", ingressToRemove.ObjectMeta.Name)
@@ -331,10 +292,6 @@ func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
 	} else {
 		logrus.Infof("Deleted service: %v, did not had label expose = true, so not deleting Ingress")
 	}
-}
-
-func getServicePortFromEvent(service *v1.Service) int {
-	return int(service.Spec.Ports[0].Port)
 }
 
 // handleErr checks if an error happened and makes sure we will retry later.
