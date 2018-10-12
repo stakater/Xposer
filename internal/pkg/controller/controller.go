@@ -43,7 +43,6 @@ type Controller struct {
 
 // NewController A Constructor for the Controller to initialize the controller
 func NewController(clientset kubernetes.Interface, osClient *routeClient.RouteV1Client, conf config.Configuration, clusterType string, namespace string) *Controller {
-	namespace = "first-controller"
 	controller := &Controller{
 		clientset:   clientset,
 		osClient:    osClient,
@@ -264,8 +263,6 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 		if ingresses.IsEmpty(existingIngress) {
 			logrus.Infof("Ingress not found for the following service: %v, so creating it", newServiceObject.Name)
 			c.serviceCreated(newObj)
-		} else {
-			logrus.Info("Ingresses exist for the service: %v", newServiceObject.Name)
 		}
 	}
 }

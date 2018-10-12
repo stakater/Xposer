@@ -1,0 +1,22 @@
+---
+# Source: xposer/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: xposer
+    group: com.stakater.platform
+    provider: stakater
+    version: 0.0.1
+    chart: "xposer-0.0.1"
+    release: "RELEASE-NAME"
+    heritage: "Tiller"
+  name: xposer
+data:
+  config.yaml: |-
+    domain: stakater.com
+    ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
+    ingressURLPath: /
+    ingressNameTemplate: "{{.Service}}"
+    tls: false
+---

@@ -1,0 +1,74 @@
+---
+# Source: xposer/templates/rbac.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: xposer
+    group: com.stakater.platform
+    provider: stakater
+    version: 0.0.1
+    chart: "xposer-0.0.1"
+    release: "RELEASE-NAME"
+    heritage: "Tiller"
+  name: xposer
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  labels:
+    app: xposer
+    group: com.stakater.platform
+    provider: stakater
+    version: 0.0.1
+    chart: "xposer-0.0.1"
+    release: "RELEASE-NAME"
+    heritage: "Tiller"
+  name: xposer-role
+rules:
+  - apiGroups:
+      - ""
+      - "extensions"
+      - "route.openshift.io"
+    resources:
+      - ingresses
+      - routes
+    verbs:
+      - list
+      - get
+      - create
+      - update
+      - patch
+      - watch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - list
+      - get
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  labels:
+    app: xposer
+    group: com.stakater.platform
+    provider: stakater
+    version: 0.0.1
+    chart: "xposer-0.0.1"
+    release: "RELEASE-NAME"
+    heritage: "Tiller"
+  name: xposer-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: xposer-role
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: xposer
+    namespace: default
+---

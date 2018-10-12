@@ -2,11 +2,11 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   annotations:
-    configmap.reloader.stakater.com/reload: {{ template "name" . }}
+    configmap.reloader.stakater.com/reload: {{ template "xposer-name" . }}
   labels:
-{{ include "labels.stakater" . | indent 4 }}
-{{ include "labels.chart" . | indent 4 }}
-  name: {{ template "name" . }}
+{{ include "xposer-labels.stakater" . | indent 4 }}
+{{ include "xposer-labels.chart" . | indent 4 }}
+  name: {{ template "xposer-name" . }}
 spec:
   replicas: 1
   revisionHistoryLimit: 2
