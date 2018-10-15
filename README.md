@@ -1,18 +1,5 @@
 # Xposer
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/stakater/chowkidar?style=flat-square)](https://goreportcard.com/report/github.com/stakater/chowkidar)
-[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/stakater/chowkidar)
-[![Release](https://img.shields.io/github/release/stakater/chowkidar.svg?style=flat-square)](https://github.com/stakater/chowkidar/releases/latest)
-[![GitHub tag](https://img.shields.io/github/tag/stakater/chowkidar.svg?style=flat-square)](https://github.com/stakater/chowkidar/releases/latest)
-[![Docker Pulls](https://img.shields.io/docker/pulls/stakater/chowkidar.svg?style=flat-square)](https://hub.docker.com/r/stakater/chowkidar/)
-[![Docker Stars](https://img.shields.io/docker/stars/stakater/chowkidar.svg?style=flat-square)](https://hub.docker.com/r/stakater/chowkidar/)
-[![MicroBadger Size](https://img.shields.io/microbadger/image-size/stakater/chowkidar.svg?style=flat-square)](https://microbadger.com/images/stakater/chowkidar)
-[![MicroBadger Layers](https://img.shields.io/microbadger/layers/stakater/chowkidar.svg?style=flat-square)](https://microbadger.com/images/stakater/chowkidar)
-[![license](https://img.shields.io/github/license/stakater/chowkidar.svg?style=flat-square)](LICENSE)
-
-[![Get started with Stakater](https://stakater.github.io/README/stakater-github-banner.png)](http://stakater.com/?utm_source=Chowkidar&utm_medium=github)
-
-
 ## Problem
 We would like to watch for services running in our cluster; and create Ingresses and generate TLS certificates automatically
 
