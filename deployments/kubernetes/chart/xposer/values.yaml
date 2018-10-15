@@ -1,0 +1,21 @@
+# Generated from deployments/kubernetes/templates/chart/values.yaml.tmpl
+
+kubernetes:
+  host: https://kubernetes.default
+
+xposer:
+  labels:
+    provider: stakater
+    group: com.stakater.platform
+    version: 0.0.1
+  image:
+    name: stakater/xposer
+    tag: "0.0.1"
+    pullPolicy: IfNotPresent
+  configFilePath: /configs/config.yaml
+  config:
+    domain: stakater.com
+    ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
+    ingressURLPath: /
+    ingressNameTemplate: "{{.Service}}"
+    tls: false
