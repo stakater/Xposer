@@ -15,8 +15,7 @@ metadata:
 data:
   config.yaml: |-
     domain: stakater.com
-    ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
+    ingressURLTemplate: ".."
     ingressURLPath: /
-    ingressNameTemplate: "{{.Service}}"
+    ingressNameTemplate: ""
     tls: false
----

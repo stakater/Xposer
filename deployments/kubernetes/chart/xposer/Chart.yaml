@@ -2,7 +2,7 @@
 
 apiVersion: v1
 name: xposer
-description: xposer chart that runs on kubernetes
+description: Xposer chart that runs on kubernetes
 version: 0.0.1
 keywords:
   - Xposer

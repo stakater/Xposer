@@ -15,7 +15,7 @@ xposer:
   configFilePath: /configs/config.yaml
   config:
     domain: stakater.com
-    ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
+    ingressURLTemplate: "<no value>.<no value>.<no value>"
     ingressURLPath: /
-    ingressNameTemplate: "{{.Service}}"
+    ingressNameTemplate: "<no value>"
     tls: false

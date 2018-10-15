@@ -16,7 +16,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: Role
 metadata:
-  labels:
+  labels: 
     app: xposer
     group: com.stakater.platform
     provider: stakater
@@ -53,7 +53,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
-  labels:
+  labels: 
     app: xposer
     group: com.stakater.platform
     provider: stakater
@@ -71,4 +71,4 @@ subjects:
   - kind: ServiceAccount
     name: xposer
     namespace: default
----
+
