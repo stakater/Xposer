@@ -7,21 +7,21 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: 0.0.1
-    chart: "xposer-0.0.1"
+    version: 0.0.2
+    chart: "xposer-0.0.2"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   labels: 
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: 0.0.1
-    chart: "xposer-0.0.1"
+    version: 0.0.2
+    chart: "xposer-0.0.2"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role
@@ -50,15 +50,15 @@ rules:
       - get
       - watch
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels: 
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: 0.0.1
-    chart: "xposer-0.0.1"
+    version: 0.0.2
+    chart: "xposer-0.0.2"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role-binding
@@ -66,7 +66,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: xposer-role
-  namespace: default
 subjects:
   - kind: ServiceAccount
     name: xposer
