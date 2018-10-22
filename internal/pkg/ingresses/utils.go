@@ -25,7 +25,7 @@ func CreateForwardAnnotationsMap(splittedAnnotations []string) map[string]string
 	forwardAnnotationsMap := make(map[string]string)
 
 	for _, annotation := range splittedAnnotations {
-		parsedAnnotation := strings.Split(annotation, ":")
+		parsedAnnotation := strings.SplitN(annotation, ":", 2)
 		if len(parsedAnnotation) != 2 {
 			logrus.Warningf("Wrong annotation provided to forward to ingress : %v", annotation)
 		} else {
