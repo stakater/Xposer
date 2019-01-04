@@ -9,8 +9,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: 0.0.3
-    chart: "xposer-0.0.3"
+    version: 0.0.4
+    chart: "xposer-0.0.4"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -37,7 +37,7 @@ spec:
               fieldPath: metadata.namespace
         - name: CONFIG_FILE_PATH
           value: /configs/config.yaml
-        image: "stakater/xposer:0.0.3"
+        image: "stakater/xposer:0.0.4"
         imagePullPolicy: IfNotPresent
         name: xposer
         volumeMounts:
@@ -58,8 +58,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: 0.0.3
-    chart: "xposer-0.0.3"
+    version: 0.0.4
+    chart: "xposer-0.0.4"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -71,8 +71,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: 0.0.3
-    chart: "xposer-0.0.3"
+    version: 0.0.4
+    chart: "xposer-0.0.4"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role
@@ -108,8 +108,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: 0.0.3
-    chart: "xposer-0.0.3"
+    version: 0.0.4
+    chart: "xposer-0.0.4"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role-binding
@@ -131,8 +131,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: 0.0.3
-    chart: "xposer-0.0.3"
+    version: 0.0.4
+    chart: "xposer-0.0.4"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
