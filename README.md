@@ -1,4 +1,4 @@
-# Xposer
+# ![](assets/web/xposer-round-100px.png) Xposer
 
 ## Problem
 We would like to watch for services running in our cluster; and create Ingresses and generate TLS certificates automatically
