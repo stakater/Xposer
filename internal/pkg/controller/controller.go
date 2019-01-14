@@ -204,9 +204,6 @@ func (c *Controller) serviceCreated(obj interface{}) {
 				logrus.Infof("Successfully created a Route with name: %v", result.Name)
 			}
 		}
-
-	} else {
-		logrus.Infof("Service: %v, doesnt not contain expose = true label, so not creating an ingress for it", newServiceObject.Name)
 	}
 }
 
@@ -245,12 +242,10 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 			}
 		} else {
 			if newServiceObject.ObjectMeta.Labels["expose"] == "false" {
-				logrus.Infof("Expose label is false in updated service: %v, deleting existing ingress", newServiceObject.Name)
 				c.serviceDeleted(oldObj)
 			}
 
 			if newServiceObject.ObjectMeta.Labels["expose"] == "true" {
-				logrus.Infof("Expose label is true in updated service: %v, so creating a new Ingress", newServiceObject.Name)
 				c.serviceCreated(newObj)
 			}
 		}
@@ -261,7 +256,6 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 		}
 		existingIngress := ingresses.GetFromListMatchingGivenServiceName(ingressList, newServiceObject.Name)
 		if ingresses.IsEmpty(existingIngress) {
-			logrus.Infof("Ingress not found for the following service: %v, so creating it", newServiceObject.Name)
 			c.serviceCreated(newObj)
 		}
 	}
@@ -286,8 +280,6 @@ func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
 		} else {
 			logrus.Infof("Ingress Deleted with name: %v", ingressToRemove.ObjectMeta.Name)
 		}
-	} else {
-		logrus.Infof("Deleted service: %v, did not had label expose = true, so not deleting Ingress")
 	}
 }
 
