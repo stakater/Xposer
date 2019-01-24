@@ -19,3 +19,4 @@ xposer:
     ingressURLPath: /
     ingressNameTemplate: "<no value>"
     tls: false
+  tolerations: {}
