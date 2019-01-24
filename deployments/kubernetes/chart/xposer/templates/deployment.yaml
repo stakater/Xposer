@@ -18,6 +18,10 @@ spec:
       labels:
 {{ include "xposer-labels.selector" . | indent 8 }}
     spec:
+      {{- if .Values.xposer.tolerations }}
+      tolerations:
+{{ toYaml .Values.xposer.tolerations | indent 8 -}}
+      {{- end }}
       containers:
       - env:
         - name: KUBERNETES_NAMESPACE
