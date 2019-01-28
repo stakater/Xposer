@@ -13,6 +13,7 @@ xposer:
     tag: "{{ getenv "VERSION" }}"
     pullPolicy: IfNotPresent
   configFilePath: /configs/config.yaml
+  watchGlobally: false
   config:
     domain: stakater.com
     ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"

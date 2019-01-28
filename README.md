@@ -1,7 +1,8 @@
 # ![](assets/web/xposer-round-100px.png) Xposer
+[![Get started with Stakater](https://stakater.github.io/README/stakater-github-banner.png)](http://stakater.com/?utm_source=Reloader&utm_medium=github)
 
 ## Problem
-We would like to watch for services running in our cluster; and create Ingresses and generate TLS certificates automatically
+We would like to watch for services running in our cluster; and create Ingresses and generate TLS certificates automatically (optional)
 
 ## Solution
 
@@ -9,10 +10,48 @@ Xposer can watch for all the services running in our cluster; Creates, Updates, 
 
 ## Deploying to Kubernetes
 
+Xposer works perfectly fine with default properties. You can however provide custom propeties to change values accordingly
+
 ### Vanialla Manifests
 
-You have to first clone or download the repository contents. The kubernetes deployment and files are provided inside deployments/kubernetes/manifests folder
+You can apply vanilla manifests by running the following command
 
+```
+kubectl apply -f https://raw.githubusercontent.com/stakater/Xposer/master/deployments/kubernetes/xposer.yaml
+```
+
+Xposer by default looks for Services only in the namespace where it is deployed, but it can be managed to work globally, you would have to change the KUBERNETES_NAMESPACE environment variable to "" in the above manifest. e.g. change KUBERNETES_NAMESPACE section to:
+
+```
+   - name: KUBERNETES_NAMESPACE
+     value: ""
+```
+
+change Role to `ClusterRole`:  
+
+```
+kind: ClusterRole
+```
+
+change RoleBinding to `ClusterRoleBinding`:
+
+```
+kind: ClusterRoleBinding
+```
+
+change 
+
+```
+roleRef:
+  kind: Role
+```
+
+to 
+
+```
+roleRef:
+  kind: ClusterRole
+```
 ### Helm Charts
 
 Alternatively if you have configured helm on your cluster, you can add Xposer to helm from our public chart repository and deploy it via helm using below mentioned commands
@@ -25,6 +64,11 @@ helm repo update
 helm install stakater/xposer
 ```
 
+By default Xposer runs in a single namespace where it is deployed. To make Xposer watch all namespaces change the following flag to `true` in `values.yaml` file 
+
+```
+  watchGlobally: true
+```
 ## How to use Xposer
 
 ### Config
@@ -67,7 +111,7 @@ metadata:
        secondAnnotation: abc
        thirdAnnotation: abc
 ```
-xposer.stakater.com/annotations accepts annotations in new line. All the annotations provided here will be forwarded to Ingress as it is.
+`xposer.stakater.com/annotations` accepts annotations in new line. All the annotations provided here will be forwarded to Ingress as it is.
 
 ```bash
 kind: Service
@@ -83,25 +127,26 @@ metadata:
     config.xposer.stakater.com/TLS: "true"
 ```
 The above 5 annotations are used to generate Ingress, if not provided default annotations from /configs/config.yaml will be used. 3 variables used are:
-1. {{.Service}} = Name of the service which is created/updated
-2. {{.Namespace}} = Namespace in which Xposer is running
-3. {{.Domain}} = Default domain from /configs/config.yaml file. Can be changed there.
+
+| Variables        | Purpose           |
+| ------------- |:-------------:|
+| `{{.Service}}` | Name of the service which is created/updated |
+| `{{.Namespace}}` | Namespace in which Xposer is running |
+| `{{.Domain}}` | Default domain from /configs/config.yaml file. Can be changed there |
 
 The above 5 annotations are for the following purpose:
 
-1. config.xposer.stakater.com/IngressNameTemplate: With this annotation we can templatize generated Ingress Name. We can use the following template variables as well {{.Service}}, {{.Namespace}}. Can not include domain in Ingress name.
+| Annotations        | Purpose           |
+| ------------- |:-------------:|
+| `config.xposer.stakater.com/IngressNameTemplate` | With this annotation we can templatize generated Ingress Name. We can use the following template variables as well {{.Service}}, {{.Namespace}}. Can not include domain in Ingress name. | 
+| `config.xposer.stakater.com/IngressURLTemplate` | With this annotation we can templatize generated Ingress URL/Hostname. We can use all 3 variables to templatize it |
+| `config.xposer.stakater.com/IngressURLPath` | With this annotation we can specify Ingress Path |
+| `config.xposer.stakater.com/Domain` | With this annotation we can specify domain| 
+| `config.xposer.stakater.com/TLS` | With this annotation we can specify wether to use certmanager and generate a TLS certificate or not | 
 
-2. config.xposer.stakater.com/IngressURLTemplate: With this annotation we can templatize generated Ingress URL/Hostname. We can use all 3 variables to templatize it
+#### Certmanager (Optional)
 
-3. config.xposer.stakater.com/IngressURLPath: With this annotation we can specify Ingress Path
-
-4. config.xposer.stakater.com/Domain: With this annotation we can specify domain
-
-5. config.xposer.stakater.com/TLS: With this annotation we can specify wether to use certmanager and generate a TLS certificate or not
-
-#### Certmanager
-
-First of all you need to install certmanager, and a Issuer/ClusterIssuer in your cluster. Xposer only needs 2 annotations to generate TLS certificates
+First of all you need to install `certmanager`, and a `Issuer/ClusterIssuer` in your cluster. Xposer only needs 2 annotations to generate TLS certificates
 
 ```bash
 kind: Service
@@ -110,13 +155,14 @@ metadata:
   labels:
     expose: 'true'
   annotations:
+    config.xposer.stakater.com/TLS: "true"
     xposer.stakater.com/annotations: |-
        certmanager.k8s.io/cluster-issuer: your-cluster-issuer-name
-    config.xposer.stakater.com/TLS: "true"
 ```
-The above example use cluster issuer "certmanager.k8s.io/cluster-issuer:" annotation which will be forwaded to the ingress as it is with the installed issuer/cluster issuer name. 
 
-The second annotation "config.xposer.stakater.com/TLS:" tells Xposer to add TLS information to the Ingress so it can communicate with the certmanager to generate certificates
+The above example use cluster issuer `certmanager.k8s.io/cluster-issuer:` annotation which will be forwaded to the ingress as it is with the installed issuer/cluster issuer name. 
+
+The second annotation `config.xposer.stakater.com/TLS:` tells Xposer to add TLS information to the Ingress so it can communicate with the certmanager to generate certificates
 
 ### Openshift
 
