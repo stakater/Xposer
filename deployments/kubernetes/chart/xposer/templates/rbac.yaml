@@ -102,7 +102,7 @@ metadata:
   name: {{ template "xposer-name" . }}-role-binding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
+  kind: ClusterRole
   name: {{ template "xposer-name" . }}-role
 subjects:
   - kind: ServiceAccount

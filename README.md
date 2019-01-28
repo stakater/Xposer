@@ -27,6 +27,31 @@ Xposer by default looks for Services only in the namespace where it is deployed,
      value: ""
 ```
 
+change Role to `ClusterRole`:  
+
+```
+kind: ClusterRole
+```
+
+change RoleBinding to `ClusterRoleBinding`:
+
+```
+kind: ClusterRoleBinding
+```
+
+change 
+
+```
+roleRef:
+  kind: Role
+```
+
+to 
+
+```
+roleRef:
+  kind: ClusterRole
+```
 ### Helm Charts
 
 Alternatively if you have configured helm on your cluster, you can add Xposer to helm from our public chart repository and deploy it via helm using below mentioned commands
