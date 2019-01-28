@@ -18,7 +18,7 @@ import (
 func NewXposerCommand() *cobra.Command {
 	cmds := &cobra.Command{
 		Use:   "xposer",
-		Short: "A controller for watching services in your Kubernetes/Openshift cluster",
+		Short: "A Kubernetes controller to watch Services and generate Ingresses/Routes and TLS Certificates automatically",
 		Run:   startXposer,
 	}
 	return cmds
@@ -26,9 +26,9 @@ func NewXposerCommand() *cobra.Command {
 
 func startXposer(cmd *cobra.Command, args []string) {
 	currentNamespace := os.Getenv("KUBERNETES_NAMESPACE")
-	if len(currentNamespace) == 0 {
+	if currentNamespace == "" {
 		currentNamespace = v1.NamespaceAll
-		logrus.Warnf("Warning: KUBERNETES_NAMESPACE is unset, will monitor services in all namespaces.")
+		logrus.Infof("KUBERNETES_NAMESPACE is unset, will monitor services in all namespaces.")
 	}
 
 	var kubeClient kubernetes.Interface
@@ -53,7 +53,9 @@ func startXposer(cmd *cobra.Command, args []string) {
 	config := config.GetControllerConfig()
 	controller := controller.NewController(kubeClient, osClient, config, clusterType, currentNamespace)
 
-	logrus.Infof("Controller started in the namespace: %v, with cluster type: %v", currentNamespace, clusterType)
+	if currentNamespace != "" {
+		logrus.Infof("Controller started in the namespace: %v, with cluster type: %v", currentNamespace, clusterType)
+	}
 
 	stop := make(chan struct{})
 	defer close(stop)

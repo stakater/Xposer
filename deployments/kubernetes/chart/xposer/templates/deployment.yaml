@@ -24,10 +24,12 @@ spec:
       {{- end }}
       containers:
       - env:
+      {{- if eq .Values.xposer.watchGlobally false }}
         - name: KUBERNETES_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+      {{- end }}
         - name: CONFIG_FILE_PATH
           value: {{ .Values.xposer.configFilePath }}
         image: "{{ .Values.xposer.image.name }}:{{ .Values.xposer.image.tag }}"

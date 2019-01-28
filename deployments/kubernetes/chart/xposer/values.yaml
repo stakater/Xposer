@@ -13,6 +13,7 @@ xposer:
     tag: "v0.0.9"
     pullPolicy: IfNotPresent
   configFilePath: /configs/config.yaml
+  watchGlobally: false
   config:
     domain: stakater.com
     ingressURLTemplate: "<no value>.<no value>.<no value>"
