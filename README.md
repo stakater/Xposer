@@ -10,9 +10,22 @@ Xposer can watch for all the services running in our cluster; Creates, Updates, 
 
 ## Deploying to Kubernetes
 
+Xposer works perfectly fine with default properties. You can however provide custom propeties to change values accordingly
+
 ### Vanialla Manifests
 
-You have to first clone or download the repository contents. The kubernetes deployment and files are provided inside deployments/kubernetes/manifests folder
+You can apply vanilla manifests by running the following command
+
+```
+kubectl apply -f https://raw.githubusercontent.com/stakater/Xposer/master/deployments/kubernetes/xposer.yaml
+```
+
+Xposer by default looks for Services only in the namespace where it is deployed, but it can be managed to work globally, you would have to change the KUBERNETES_NAMESPACE environment variable to "" in the above manifest. e.g. change KUBERNETES_NAMESPACE section to:
+
+```
+   - name: KUBERNETES_NAMESPACE
+     value: ""
+```
 
 ### Helm Charts
 
@@ -25,12 +38,11 @@ helm repo update
 
 helm install stakater/xposer
 ```
-## Running in a single/all namespaces
 
-By default Xposer runs in a single namespace in which it is being deployed. To make Xposer watch all namespaces change the following flag to `true` in `values.yaml.tmpl` file 
+By default Xposer runs in a single namespace where it is deployed. To make Xposer watch all namespaces change the following flag to `true` in `values.yaml` file 
 
 ```
-  watchGlobally: false
+  watchGlobally: true
 ```
 ## How to use Xposer
 
