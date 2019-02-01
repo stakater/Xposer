@@ -7,15 +7,15 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.10
-    chart: "xposer-v0.0.10"
+    version: v0.0.11
+    chart: "xposer-v0.0.11"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
 data:
   config.yaml: |-
     domain: stakater.com
-    ingressURLTemplate: ".."
+    ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
     ingressURLPath: /
-    ingressNameTemplate: ""
+    ingressNameTemplate: "{{.Service}}"
     tls: false

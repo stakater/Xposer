@@ -9,8 +9,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.10
-    chart: "xposer-v0.0.10"
+    version: v0.0.11
+    chart: "xposer-v0.0.11"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -37,7 +37,7 @@ spec:
               fieldPath: metadata.namespace
         - name: CONFIG_FILE_PATH
           value: /configs/config.yaml
-        image: "stakater/xposer:v0.0.10"
+        image: "stakater/xposer:v0.0.11"
         imagePullPolicy: IfNotPresent
         name: xposer
         volumeMounts:
@@ -58,8 +58,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.10
-    chart: "xposer-v0.0.10"
+    version: v0.0.11
+    chart: "xposer-v0.0.11"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -71,8 +71,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.10
-    chart: "xposer-v0.0.10"
+    version: v0.0.11
+    chart: "xposer-v0.0.11"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role
@@ -109,8 +109,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.10
-    chart: "xposer-v0.0.10"
+    version: v0.0.11
+    chart: "xposer-v0.0.11"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role-binding
@@ -132,15 +132,15 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.10
-    chart: "xposer-v0.0.10"
+    version: v0.0.11
+    chart: "xposer-v0.0.11"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
 data:
   config.yaml: |-
     domain: stakater.com
-    ingressURLTemplate: ".."
+    ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
     ingressURLPath: /
-    ingressNameTemplate: ""
+    ingressNameTemplate: "{{.Service}}"
     tls: false
