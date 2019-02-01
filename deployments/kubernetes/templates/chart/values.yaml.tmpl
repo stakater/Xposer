@@ -16,8 +16,8 @@ xposer:
   watchGlobally: false
   config:
     domain: stakater.com
-    ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
+    ingressURLTemplate: {{ `"{{.Service}}.{{.Namespace}}.{{.Domain}}"` }}
     ingressURLPath: /
-    ingressNameTemplate: "{{.Service}}"
+    ingressNameTemplate: {{ `"{{.Service}}"` }}
     tls: false
   tolerations: {}
