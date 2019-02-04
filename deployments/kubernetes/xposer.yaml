@@ -9,8 +9,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.11
-    chart: "xposer-v0.0.11"
+    version: v0.0.12
+    chart: "xposer-v0.0.12"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -37,7 +37,7 @@ spec:
               fieldPath: metadata.namespace
         - name: CONFIG_FILE_PATH
           value: /configs/config.yaml
-        image: "stakater/xposer:v0.0.11"
+        image: "stakater/xposer:v0.0.12"
         imagePullPolicy: IfNotPresent
         name: xposer
         volumeMounts:
@@ -58,8 +58,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.11
-    chart: "xposer-v0.0.11"
+    version: v0.0.12
+    chart: "xposer-v0.0.12"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -71,8 +71,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.11
-    chart: "xposer-v0.0.11"
+    version: v0.0.12
+    chart: "xposer-v0.0.12"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role
@@ -109,8 +109,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.11
-    chart: "xposer-v0.0.11"
+    version: v0.0.12
+    chart: "xposer-v0.0.12"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role-binding
@@ -124,6 +124,61 @@ subjects:
     namespace: default
 ---
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels: 
+    app: xposer
+    group: com.stakater.platform
+    provider: stakater
+    version: v0.0.12
+    chart: "xposer-v0.0.12"
+    release: "RELEASE-NAME"
+    heritage: "Tiller"
+  name: xposer-configmap-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - list
+      - get
+      - create
+      - update
+      - patch
+      - watch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - list
+      - get
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels: 
+    app: xposer
+    group: com.stakater.platform
+    provider: stakater
+    version: v0.0.12
+    chart: "xposer-v0.0.12"
+    release: "RELEASE-NAME"
+    heritage: "Tiller"
+  name: xposer-configmap-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: xposer-configmap-role
+subjects:
+  - kind: ServiceAccount
+    name: xposer
+    namespace: default
+---
 # Source: xposer/templates/configmap.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -132,8 +187,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.11
-    chart: "xposer-v0.0.11"
+    version: v0.0.12
+    chart: "xposer-v0.0.12"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer

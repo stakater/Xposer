@@ -7,10 +7,10 @@ xposer:
   labels:
     provider: stakater
     group: com.stakater.platform
-    version: v0.0.11
+    version: v0.0.12
   image:
     name: stakater/xposer
-    tag: "v0.0.11"
+    tag: "v0.0.12"
     pullPolicy: IfNotPresent
   configFilePath: /configs/config.yaml
   watchGlobally: false
