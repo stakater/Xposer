@@ -109,3 +109,48 @@ subjects:
     name: {{ template "xposer-name" . }}
     namespace: {{ .Release.Namespace }}
 {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels: 
+{{ include "xposer-labels.stakater" . | indent 4 }}
+{{ include "xposer-labels.chart" . | indent 4 }}
+  name: {{ template "xposer-name" . }}-configmap-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - list
+      - get
+      - create
+      - update
+      - patch
+      - watch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - list
+      - get
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels: 
+{{ include "xposer-labels.stakater" . | indent 4 }}
+{{ include "xposer-labels.chart" . | indent 4 }}
+  name: {{ template "xposer-name" . }}-configmap-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "xposer-name" . }}-configmap-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "xposer-name" . }}
+    namespace: {{ .Release.Namespace }}
