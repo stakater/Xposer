@@ -8,6 +8,7 @@ import (
 	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	"github.com/sirupsen/logrus"
 	config "github.com/stakater/Xposer/internal/pkg/config"
+	"github.com/stakater/Xposer/internal/pkg/configmaps"
 	"github.com/stakater/Xposer/internal/pkg/constants"
 	"github.com/stakater/Xposer/internal/pkg/ingresses"
 	"github.com/stakater/Xposer/internal/pkg/routes"
@@ -190,6 +191,71 @@ func (c *Controller) serviceCreated(obj interface{}) {
 			} else {
 				logrus.Infof("Successfully created an Ingress with name: %v", result.Name)
 			}
+
+			if ingressInfo.ForwardAnnotationsMap["isGlobal"] == "true" {
+				namespaces, err := c.clientset.CoreV1().Namespaces().List(meta_v1.ListOptions{})
+				if err != nil {
+					logrus.Errorf("Can not fetch all namespaces: %v", err)
+				} else {
+					for _, namespace := range namespaces.Items {
+						configMap, err := c.clientset.CoreV1().ConfigMaps(namespace.Name).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
+						// Configmap already exist
+						if err != nil {
+							configData := make(map[string]string)
+							configData[newServiceObject.Name+"-"+newServiceObject.Namespace] = ingressInfo.IngressHost
+
+							configMap := configmaps.CreateConfigMap(namespace.Name, configData)
+							_, err := c.clientset.CoreV1().ConfigMaps(namespace.Name).Create(configMap)
+
+							if err != nil {
+								logrus.Errorf("Config-map not created in namespace:%v, with error %v", namespace.Name, err)
+							}
+
+							logrus.Infof("Configmap created in namespace: %v, with values: %v", namespace.Name, configMap.Data)
+						} else {
+							if configMap.Data == nil {
+								configMap.Data = make(map[string]string)
+							}
+							configMap.Data[newServiceObject.Name+"-"+newServiceObject.Namespace] = ingressInfo.IngressHost
+							_, err := c.clientset.CoreV1().ConfigMaps(namespace.Name).Update(configMap)
+							if err != nil {
+								logrus.Errorf("Can not update config map in namespace: %v, with error: %v", namespace, err)
+							}
+
+							logrus.Infof("Configmap updated in namespace: %v, with values: %v", namespace.Name, configMap.Data)
+						}
+					}
+				}
+			} else {
+				logrus.Infof("Is global false")
+				configMap, err := c.clientset.CoreV1().ConfigMaps(newServiceObject.Namespace).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
+				if err != nil {
+					configData := make(map[string]string)
+					configData[newServiceObject.Name+"-"+newServiceObject.Namespace] = ingressInfo.IngressHost
+
+					configMap := configmaps.CreateConfigMap(newServiceObject.Namespace, configData)
+
+					_, err := c.clientset.CoreV1().ConfigMaps(newServiceObject.Namespace).Create(configMap)
+
+					if err != nil {
+						logrus.Errorf("Config-map not created in namespace:%v, with error %v", newServiceObject.Namespace, err)
+					}
+
+					logrus.Infof("Configmap created in namespace: %v, with values: %v", newServiceObject.Namespace, configMap.Data)
+				} else {
+					logrus.Infof("Config map exists. Update entity, %v", configMap)
+					if configMap.Data == nil {
+						configMap.Data = make(map[string]string)
+					}
+					configMap.Data[newServiceObject.Name+"-"+newServiceObject.Namespace] = ingressInfo.IngressHost
+					_, err := c.clientset.CoreV1().ConfigMaps(newServiceObject.Namespace).Update(configMap)
+					if err != nil {
+						logrus.Errorf("Can not update config map in namespace: %v, with error: %v", newServiceObject.Namespace, err)
+					}
+
+					logrus.Infof("Configmap updated in namespace: %v, with values: %v", newServiceObject.Namespace, configMap.Data)
+				}
+			}
 		}
 
 		if c.clusterType == constants.OPENSHIFT {
@@ -279,6 +345,45 @@ func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
 			logrus.Warnf("Ingress not deleted with name: %v", ingressToRemove.ObjectMeta.Name)
 		} else {
 			logrus.Infof("Ingress Deleted with name: %v", ingressToRemove.ObjectMeta.Name)
+		}
+
+		// Updating xposer config map if it exists
+		ingressInfo := ingresses.CreateIngressInfo(serviceToDelete, c.config, serviceToDelete.Namespace)
+
+		if ingressInfo.ForwardAnnotationsMap["isGlobal"] == "true" {
+			namespaces, err := c.clientset.CoreV1().Namespaces().List(meta_v1.ListOptions{})
+			if err != nil {
+				logrus.Errorf("Can not fetch all namespaces: %v", err)
+			} else {
+				for _, namespace := range namespaces.Items {
+					configMap, err := c.clientset.CoreV1().ConfigMaps(namespace.Name).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
+					// configmap exist
+					if err == nil {
+						delete(configMap.Data, serviceToDelete.Name+"-"+serviceToDelete.Namespace)
+						_, err := c.clientset.CoreV1().ConfigMaps(namespace.Name).Update(configMap)
+						if err != nil {
+							logrus.Errorf("Can not update config map in namespace: %v, with error: %v", namespace.Name, err)
+						}
+
+						logrus.Infof("Configmap updated in namespace: %v, with values: %v", namespace.Name, configMap.Data)
+					}
+				}
+			}
+		} else {
+			configMap, err := c.clientset.CoreV1().ConfigMaps(serviceToDelete.Namespace).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
+			// configmap exist
+			if err == nil {
+				logrus.Infof("Configmap before: %v", configMap.Data)
+				logrus.Infof("Index: %v", serviceToDelete.Name+"-"+serviceToDelete.Namespace)
+				delete(configMap.Data, serviceToDelete.Name+"-"+serviceToDelete.Namespace)
+				logrus.Infof("Configmap after: %v", configMap.Data)
+				_, err := c.clientset.CoreV1().ConfigMaps(serviceToDelete.Namespace).Update(configMap)
+				if err != nil {
+					logrus.Errorf("Can not update config map in namespace: %v, with error: %v", serviceToDelete.Namespace, err)
+				}
+
+				logrus.Infof("Configmap updated in namespace: %v, with values: %v", serviceToDelete.Namespace, configMap.Data)
+			}
 		}
 	}
 }
