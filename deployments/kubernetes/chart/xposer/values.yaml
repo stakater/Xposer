@@ -20,4 +20,5 @@ xposer:
     ingressURLPath: /
     ingressNameTemplate: "{{.Service}}"
     tls: false
+    exposeServiceURL: "false"
   tolerations: {}

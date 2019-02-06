@@ -1,4 +1,4 @@
-# Generated from deployments/kubernetes/templates/chart/values.yaml.tmpl
+  # Generated from deployments/kubernetes/templates/chart/values.yaml.tmpl
 
 kubernetes:
   host: https://kubernetes.default
@@ -20,4 +20,5 @@ xposer:
     ingressURLPath: /
     ingressNameTemplate: {{ `"{{.Service}}"` }}
     tls: false
+    exposeServiceURL: "false"
   tolerations: {}

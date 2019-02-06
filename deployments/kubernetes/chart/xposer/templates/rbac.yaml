@@ -110,6 +110,7 @@ subjects:
     namespace: {{ .Release.Namespace }}
 {{- end }}
 ---
+{{- if eq .Values.xposer.config.exposeServiceURL "globally"}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -138,7 +139,9 @@ rules:
       - list
       - get
       - watch
+{{- end }}
 ---
+{{- if eq .Values.xposer.config.exposeServiceURL "globally" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -154,3 +157,54 @@ subjects:
   - kind: ServiceAccount
     name: {{ template "xposer-name" . }}
     namespace: {{ .Release.Namespace }}
+{{- end }}
+---
+{{- if eq .Values.xposer.config.exposeServiceURL "locally" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels: 
+{{ include "xposer-labels.stakater" . | indent 4 }}
+{{ include "xposer-labels.chart" . | indent 4 }}
+  name: {{ template "xposer-name" . }}-configmap-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - list
+      - get
+      - create
+      - update
+      - patch
+      - watch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - list
+      - get
+      - watch
+{{- end }}
+---
+{{- if eq .Values.xposer.config.exposeServiceURL "locally" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels: 
+{{ include "xposer-labels.stakater" . | indent 4 }}
+{{ include "xposer-labels.chart" . | indent 4 }}
+  name: {{ template "xposer-name" . }}-configmap-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ template "xposer-name" . }}-configmap-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "xposer-name" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+---

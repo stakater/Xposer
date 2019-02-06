@@ -15,6 +15,7 @@ type Configuration struct {
 	IngressURLPath      string `yaml:"ingressURLPath"`
 	IngressNameTemplate string `yaml:"ingressNameTemplate"`
 	TLS                 bool   `yaml:"tls"`
+	ExposeServiceUrl    string `yaml:"exposeServicesURL"`
 }
 
 //ReadConfig function that reads the yaml file
