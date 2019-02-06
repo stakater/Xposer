@@ -80,6 +80,7 @@ ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
 ingressURLPath: /
 ingressNameTemplate: "{{.Service}}"
 tls: false
+exposeServiceURL: "false"
 ```
 
 Each property is explained below in details
@@ -125,6 +126,7 @@ metadata:
     config.xposer.stakater.com/IngressURLPath: "/"
     config.xposer.stakater.com/Domain: domain.com
     config.xposer.stakater.com/TLS: "true"
+    config.xposer.stakater.com/ExposeServiceUrl: "false"
 ```
 The above 5 annotations are used to generate Ingress, if not provided default annotations from /configs/config.yaml will be used. 3 variables used are:
 
@@ -143,6 +145,39 @@ The above 5 annotations are for the following purpose:
 | `config.xposer.stakater.com/IngressURLPath` | With this annotation we can specify Ingress Path |
 | `config.xposer.stakater.com/Domain` | With this annotation we can specify domain| 
 | `config.xposer.stakater.com/TLS` | With this annotation we can specify wether to use certmanager and generate a TLS certificate or not | 
+| `config.xposer.stakater.com/ExposeServiceUrl` | With this annotation we can specify wether to expose public URL (Ingress host) of the service | 
+
+#### Exposing public URL of service
+
+Xposer provides support for exposing service's public Url in the form of configmaps. Firstly we need to configure Xposer to allow exposing Urls by the following xposer config
+
+```
+config.xposer.stakater.com/ExposeServiceUrl
+```
+
+The above annotation can have 2 values; `globally` or `locally`. Any other value will be discarded or will be treated as `false`
+
+Now on each service which is being exposed by Xposer, we need to add the following annotation under the xposer annotations (The annotations which are forwarded to Ingress)
+
+```
+xposer.stakater.com/annotations: |-
+   exposeServiceURL: true
+```
+
+In case `ExposeServiceUrl` was set `globally`, a config-map with name `xposer` will be created in all the namespaces with data like this: 
+
+| Key        | Value           |
+| ------------- |:-------------:|
+| `[created-service-name]`-`[created-service-namespace]` | Ingress host of created service | 
+
+
+In case `ExposeServiceUrl` was set `locally`, a config-map with name `xposer` will be created only in the current namespace where service is being created/updated
+
+| Key        | Value           |
+| ------------- |:-------------:|
+| `[created-service-name]`-`[created-service-namespace]` | Ingress host of created service | 
+
+In case the service is deleted, they key is removed from configmap
 
 #### Certmanager (Optional)
 

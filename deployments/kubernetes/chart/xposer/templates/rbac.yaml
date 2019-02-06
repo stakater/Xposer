@@ -117,7 +117,7 @@ metadata:
   labels: 
 {{ include "xposer-labels.stakater" . | indent 4 }}
 {{ include "xposer-labels.chart" . | indent 4 }}
-  name: {{ template "xposer-name" . }}-configmap-role
+  name: {{ template "xposer-name" . }}-configmap-role-{{ .Release.Namespace }}
 rules:
   - apiGroups:
       - ""
@@ -139,16 +139,14 @@ rules:
       - list
       - get
       - watch
-{{- end }}
 ---
-{{- if eq .Values.xposer.config.exposeServiceURL "globally" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels: 
 {{ include "xposer-labels.stakater" . | indent 4 }}
 {{ include "xposer-labels.chart" . | indent 4 }}
-  name: {{ template "xposer-name" . }}-configmap-role-binding
+  name: {{ template "xposer-name" . }}-configmap-role-binding-{{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -166,7 +164,7 @@ metadata:
   labels: 
 {{ include "xposer-labels.stakater" . | indent 4 }}
 {{ include "xposer-labels.chart" . | indent 4 }}
-  name: {{ template "xposer-name" . }}-configmap-role
+  name: {{ template "xposer-name" . }}-configmap-role-{{ .Release.Namespace }}
 rules:
   - apiGroups:
       - ""
@@ -188,16 +186,14 @@ rules:
       - list
       - get
       - watch
-{{- end }}
 ---
-{{- if eq .Values.xposer.config.exposeServiceURL "locally" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels: 
 {{ include "xposer-labels.stakater" . | indent 4 }}
 {{ include "xposer-labels.chart" . | indent 4 }}
-  name: {{ template "xposer-name" . }}-configmap-role-binding
+  name: {{ template "xposer-name" . }}-configmap-role-binding-{{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

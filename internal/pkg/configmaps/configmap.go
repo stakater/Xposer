@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// CreateConfigMapObject creates a *v1.Configmap object from given parameters
 func CreateConfigMapObject(namespace string, configData map[string]string) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		ObjectMeta: meta_v1.ObjectMeta{
@@ -19,6 +20,7 @@ func CreateConfigMapObject(namespace string, configData map[string]string) *v1.C
 	}
 }
 
+// DeleteFromConfigMapGlobally generates configmap key from given service, and removes that key from xposer configmap from all namespaces
 func DeleteFromConfigMapGlobally(clientset kubernetes.Interface, service *v1.Service) {
 	namespaces, err := clientset.CoreV1().Namespaces().List(meta_v1.ListOptions{})
 	if err != nil {
@@ -34,6 +36,7 @@ func DeleteFromConfigMapGlobally(clientset kubernetes.Interface, service *v1.Ser
 	}
 }
 
+// DeleteFromConfigMapLocally generates configmap key from given service, and removes that key from xposer configmap in service's namespace
 func DeleteFromConfigMapLocally(clientset kubernetes.Interface, service *v1.Service) {
 	configMap, err := clientset.CoreV1().ConfigMaps(service.Namespace).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
 	// configmap exist
@@ -42,6 +45,7 @@ func DeleteFromConfigMapLocally(clientset kubernetes.Interface, service *v1.Serv
 	}
 }
 
+// PopulateConfigMapGlobally creates a new/update existing xposer configmap in all namespaces
 func PopulateConfigMapGlobally(clientset kubernetes.Interface, newServiceObject *v1.Service, ingressHost string) {
 	namespaces, err := clientset.CoreV1().Namespaces().List(meta_v1.ListOptions{})
 	if err != nil {
@@ -58,6 +62,7 @@ func PopulateConfigMapGlobally(clientset kubernetes.Interface, newServiceObject 
 	}
 }
 
+// PopulateConfigMapLocally creates a new/update existing xposer configmap in service's namespace
 func PopulateConfigMapLocally(clientset kubernetes.Interface, newServiceObject *v1.Service, ingressHost string) {
 	configMap, err := clientset.CoreV1().ConfigMaps(newServiceObject.Namespace).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
 	if err != nil {
@@ -67,6 +72,7 @@ func PopulateConfigMapLocally(clientset kubernetes.Interface, newServiceObject *
 	}
 }
 
+// createConfigMap uses kubernetes client to create an actual config-map in cluster
 func createConfigMap(clientset kubernetes.Interface, newServiceObject *v1.Service, ingressHost string) {
 	configData := make(map[string]string)
 	configData[newServiceObject.Name+"-"+newServiceObject.Namespace] = ingressHost
@@ -82,6 +88,7 @@ func createConfigMap(clientset kubernetes.Interface, newServiceObject *v1.Servic
 	logrus.Infof("Configmap created in namespace: %v", newServiceObject.Namespace)
 }
 
+// updateConfigMap uses kubernetes client to update an actual config-map in cluster
 func updateConfigMap(configMap *v1.ConfigMap, clientset kubernetes.Interface, newServiceObject *v1.Service, ingressHost string) {
 	if configMap.Data == nil {
 		configMap.Data = make(map[string]string)
@@ -95,6 +102,7 @@ func updateConfigMap(configMap *v1.ConfigMap, clientset kubernetes.Interface, ne
 	logrus.Infof("Configmap updated in namespace: %v", newServiceObject.Namespace)
 }
 
+// deleteKeyFromConfigMap uses kubernetes client to delete a key from xposer config-map in cluster
 func deleteKeyFromConfigMap(configMap *v1.ConfigMap, service *v1.Service, clientset kubernetes.Interface) {
 	delete(configMap.Data, service.Name+"-"+service.Namespace)
 	_, err := clientset.CoreV1().ConfigMaps(service.Namespace).Update(configMap)

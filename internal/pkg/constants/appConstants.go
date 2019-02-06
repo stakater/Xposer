@@ -13,5 +13,4 @@ const (
 	CERT             = "-cert"
 	RESYNC_PERIOD    = 10 * time.Second
 	XPOSER_CONFIGMAP = "xposer"
-	DEFAULT          = "default"
 )
