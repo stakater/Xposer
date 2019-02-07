@@ -7,8 +7,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.11
-    chart: "xposer-v0.0.11"
+    version: v0.0.12
+    chart: "xposer-v0.0.12"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
