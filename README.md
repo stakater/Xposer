@@ -27,21 +27,52 @@ Xposer by default looks for Services only in the namespace where it is deployed,
      value: ""
 ```
 
-change Role to `ClusterRole`:  
+In Role `xposer-role` change  
+
+```
+kind: Role
+```
+
+to 
 
 ```
 kind: ClusterRole
 ```
 
-change RoleBinding to `ClusterRoleBinding`:
+In RoleBinding `xposer-role-binding` change
+
+```
+kind: RoleBinding
+roleRef:
+  kind: Role
+```
+
+to
 
 ```
 kind: ClusterRoleBinding
+roleRef:
+  kind: ClusterRole
 ```
 
-change 
+If you want Xposer to expose service URLs globally you also need to do the following:
+
+In Role `xposer-configmap-role` change
 
 ```
+kind: Role
+```
+
+to 
+
+```
+kind: ClusterRole
+```
+
+In RoleBinding `xposer-configmap-role-binding` change
+
+```
+kind: RoleBinding
 roleRef:
   kind: Role
 ```
@@ -49,9 +80,11 @@ roleRef:
 to 
 
 ```
+kind: ClusterRoleBinding
 roleRef:
   kind: ClusterRole
 ```
+
 ### Helm Charts
 
 Alternatively if you have configured helm on your cluster, you can add Xposer to helm from our public chart repository and deploy it via helm using below mentioned commands
@@ -69,6 +102,12 @@ By default Xposer runs in a single namespace where it is deployed. To make Xpose
 ```
   watchGlobally: true
 ```
+
+By default Xposer exposes service URLs locally (service's namespace). To make Xposer expose service URLs globally (in all namespaces) change the following flag to `globally` in `values.yaml` file
+```
+  exposeServiceURL: globally
+```
+
 ## How to use Xposer
 
 ### Config
@@ -80,7 +119,6 @@ ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
 ingressURLPath: /
 ingressNameTemplate: "{{.Service}}"
 tls: false
-exposeServiceURL: "false"
 ```
 
 Each property is explained below in details
@@ -126,17 +164,16 @@ metadata:
     config.xposer.stakater.com/IngressURLPath: "/"
     config.xposer.stakater.com/Domain: domain.com
     config.xposer.stakater.com/TLS: "true"
-    config.xposer.stakater.com/ExposeServiceUrl: "false"
 ```
 The above 5 annotations are used to generate Ingress, if not provided default annotations from /configs/config.yaml will be used. 3 variables used are:
 
 | Variables        | Purpose           |
 | ------------- |:-------------:|
 | `{{.Service}}` | Name of the service which is created/updated |
-| `{{.Namespace}}` | Namespace in which Xposer is running |
-| `{{.Domain}}` | Default domain from /configs/config.yaml file. Can be changed there |
+| `{{.Namespace}}` | Namespace in which service is created/updated |
+| `{{.Domain}}` | Value from the annotation `config.xposer.stakater.com/Domain` or default domain from /configs/config.yaml file|
 
-The above 5 annotations are for the following purpose:
+The below 5 annotations are for the following purpose:
 
 | Annotations        | Purpose           |
 | ------------- |:-------------:|
@@ -145,33 +182,28 @@ The above 5 annotations are for the following purpose:
 | `config.xposer.stakater.com/IngressURLPath` | With this annotation we can specify Ingress Path |
 | `config.xposer.stakater.com/Domain` | With this annotation we can specify domain| 
 | `config.xposer.stakater.com/TLS` | With this annotation we can specify wether to use certmanager and generate a TLS certificate or not | 
-| `config.xposer.stakater.com/ExposeServiceUrl` | With this annotation we can specify wether to expose public URL (Ingress host) of the service | 
 
 #### Exposing public URL of service
 
-Xposer provides support for exposing service's public Url in the form of configmaps. Firstly we need to configure Xposer to allow exposing Urls by the following xposer config
+Xposer provides support for exposing service's public Url in the form of configmaps. By default it exposes URLs locally (in the same namespace where service is created/updated). Whenever a service is created/updated/deleted, it updates the configmap `xposer` with the Ingress URL of the service. To make it work globally (in all namespaces) please check the following section *Deploying to Kubernetes* to configure Xposer
 
-```
-config.xposer.stakater.com/ExposeServiceUrl
-```
-
-The above annotation can have 2 values; `globally` or `locally`. Any other value will be discarded or will be treated as `false`
-
-Now on each service which is being exposed by Xposer, we need to add the following annotation under the xposer annotations (The annotations which are forwarded to Ingress)
+On each service which is being exposed by Xposer, we need to add the following annotation under the xposer annotations (The annotations which are forwarded to Ingress)
 
 ```
 xposer.stakater.com/annotations: |-
-   exposeServiceURL: true
+   exposeIngressUrl: [locally or globally]
 ```
 
-In case `ExposeServiceUrl` was set `globally`, a config-map with name `xposer` will be created in all the namespaces with data like this: 
+The above annotation can have 2 values; `globally` or `locally`. Any other value will be discarded.
+
+In case `exposeIngressUrl` was set `globally`, a config-map with name `xposer` will be created in all the namespaces with data like this: 
 
 | Key        | Value           |
 | ------------- |:-------------:|
 | `[created-service-name]`-`[created-service-namespace]` | Ingress host of created service | 
 
 
-In case `ExposeServiceUrl` was set `locally`, a config-map with name `xposer` will be created only in the current namespace where service is being created/updated
+In case `exposeIngressUrl` was set `locally`, a config-map with name `xposer` will be created only in the current namespace where service is being created/updated
 
 | Key        | Value           |
 | ------------- |:-------------:|
