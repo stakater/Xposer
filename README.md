@@ -1,5 +1,15 @@
 # ![](assets/web/xposer-round-100px.png) Xposer
-[![Get started with Stakater](https://stakater.github.io/README/stakater-github-banner.png)](http://stakater.com/?utm_source=Reloader&utm_medium=github)
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/stakater/xposer?style=flat-square)](https://goreportcard.com/report/github.com/stakater/xposer)
+[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/stakater/xposer)
+[![Release](https://img.shields.io/github/release/stakater/xposer.svg?style=flat-square)](https://github.com/stakater/xposer/releases/latest)
+[![GitHub tag](https://img.shields.io/github/tag/stakater/xposer.svg?style=flat-square)](https://github.com/stakater/xposer/releases/latest)
+[![Docker Pulls](https://img.shields.io/docker/pulls/stakater/xposer.svg?style=flat-square)](https://hub.docker.com/r/stakater/xposer/)
+[![Docker Stars](https://img.shields.io/docker/stars/stakater/xposer.svg?style=flat-square)](https://hub.docker.com/r/stakater/xposer/)
+[![MicroBadger Size](https://img.shields.io/microbadger/image-size/stakater/xposer.svg?style=flat-square)](https://microbadger.com/images/stakater/xposer)
+[![MicroBadger Layers](https://img.shields.io/microbadger/layers/stakater/xposer.svg?style=flat-square)](https://microbadger.com/images/stakater/xposer)
+[![license](https://img.shields.io/github/license/stakater/xposer.svg?style=flat-square)](LICENSE)
+[![Get started with Stakater](https://stakater.github.io/README/stakater-github-banner.png)](http://stakater.com/?utm_source=Xposer&utm_medium=github)
 
 ## Problem
 We would like to watch for services running in our cluster; and create Ingresses and generate TLS certificates automatically (optional)
@@ -27,21 +37,52 @@ Xposer by default looks for Services only in the namespace where it is deployed,
      value: ""
 ```
 
-change Role to `ClusterRole`:  
+In Role `xposer-role` change  
+
+```
+kind: Role
+```
+
+to 
 
 ```
 kind: ClusterRole
 ```
 
-change RoleBinding to `ClusterRoleBinding`:
+In RoleBinding `xposer-role-binding` change
+
+```
+kind: RoleBinding
+roleRef:
+  kind: Role
+```
+
+to
 
 ```
 kind: ClusterRoleBinding
+roleRef:
+  kind: ClusterRole
 ```
 
-change 
+If you want Xposer to expose service URLs globally you also need to do the following:
+
+In Role `xposer-configmap-role` change
 
 ```
+kind: Role
+```
+
+to 
+
+```
+kind: ClusterRole
+```
+
+In RoleBinding `xposer-configmap-role-binding` change
+
+```
+kind: RoleBinding
 roleRef:
   kind: Role
 ```
@@ -49,9 +90,11 @@ roleRef:
 to 
 
 ```
+kind: ClusterRoleBinding
 roleRef:
   kind: ClusterRole
 ```
+
 ### Helm Charts
 
 Alternatively if you have configured helm on your cluster, you can add Xposer to helm from our public chart repository and deploy it via helm using below mentioned commands
@@ -69,6 +112,12 @@ By default Xposer runs in a single namespace where it is deployed. To make Xpose
 ```
   watchGlobally: true
 ```
+
+By default Xposer exposes service URLs locally (service's namespace). To make Xposer expose service URLs globally (in all namespaces) change the following flag to `globally` in `values.yaml` file
+```
+  exposeServiceURL: globally
+```
+
 ## How to use Xposer
 
 ### Config
@@ -131,10 +180,10 @@ The above 5 annotations are used to generate Ingress, if not provided default an
 | Variables        | Purpose           |
 | ------------- |:-------------:|
 | `{{.Service}}` | Name of the service which is created/updated |
-| `{{.Namespace}}` | Namespace in which Xposer is running |
-| `{{.Domain}}` | Default domain from /configs/config.yaml file. Can be changed there |
+| `{{.Namespace}}` | Namespace in which service is created/updated |
+| `{{.Domain}}` | Value from the annotation `config.xposer.stakater.com/Domain` or default domain from /configs/config.yaml file|
 
-The above 5 annotations are for the following purpose:
+The below 5 annotations are for the following purpose:
 
 | Annotations        | Purpose           |
 | ------------- |:-------------:|
@@ -143,6 +192,34 @@ The above 5 annotations are for the following purpose:
 | `config.xposer.stakater.com/IngressURLPath` | With this annotation we can specify Ingress Path |
 | `config.xposer.stakater.com/Domain` | With this annotation we can specify domain| 
 | `config.xposer.stakater.com/TLS` | With this annotation we can specify wether to use certmanager and generate a TLS certificate or not | 
+
+#### Exposing public URL of service
+
+Xposer provides support for exposing service's public Url in the form of configmaps. By default it exposes URLs locally (in the same namespace where service is created/updated). Whenever a service is created/updated/deleted, it updates the configmap `xposer` with the Ingress URL of the service. To make it work globally (in all namespaces) please check the following section *Deploying to Kubernetes* to configure Xposer
+
+On each service which is being exposed by Xposer, we need to add the following annotation under the xposer annotations (The annotations which are forwarded to Ingress)
+
+```
+xposer.stakater.com/annotations: |-
+   exposeIngressUrl: [locally or globally]
+```
+
+The above annotation can have 2 values; `globally` or `locally`. Any other value will be discarded.
+
+In case `exposeIngressUrl` was set `globally`, a config-map with name `xposer` will be created in all the namespaces with data like this: 
+
+| Key        | Value           |
+| ------------- |:-------------:|
+| `[created-service-name]`-`[created-service-namespace]` | Ingress host of created service | 
+
+
+In case `exposeIngressUrl` was set `locally`, a config-map with name `xposer` will be created only in the current namespace where service is being created/updated
+
+| Key        | Value           |
+| ------------- |:-------------:|
+| `[created-service-name]`-`[created-service-namespace]` | Ingress host of created service | 
+
+In case the service is deleted, they key is removed from configmap
 
 #### Certmanager (Optional)
 

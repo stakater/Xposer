@@ -174,8 +174,8 @@ func (c *Controller) serviceCreated(obj interface{}) {
 	logrus.Info("Service create event for the following service: %v", newServiceObject.Name)
 
 	// Label for wether to create an ingress for this service or not
-	if newServiceObject.ObjectMeta.Labels["expose"] == "true" {
-		ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config, c.namespace)
+	if newServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "true" {
+		ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config)
 
 		if c.clusterType == constants.KUBERNETES {
 			ingress := ingresses.CreateFromIngressInfo(ingressInfo)
@@ -185,76 +185,17 @@ func (c *Controller) serviceCreated(obj interface{}) {
 				ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
 			}
 
-			result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Create(ingress)
+			result, err := c.clientset.ExtensionsV1beta1().Ingresses(ingressInfo.Namespace).Create(ingress)
 			if err != nil {
 				logrus.Warnf("Can not create new Ingress: %v", err)
 			} else {
 				logrus.Infof("Successfully created an Ingress with name: %v", result.Name)
 			}
 
-			if ingressInfo.ForwardAnnotationsMap["isGlobal"] == "true" {
-				namespaces, err := c.clientset.CoreV1().Namespaces().List(meta_v1.ListOptions{})
-				if err != nil {
-					logrus.Errorf("Can not fetch all namespaces: %v", err)
-				} else {
-					for _, namespace := range namespaces.Items {
-						configMap, err := c.clientset.CoreV1().ConfigMaps(namespace.Name).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
-						// Configmap already exist
-						if err != nil {
-							configData := make(map[string]string)
-							configData[newServiceObject.Name+"-"+newServiceObject.Namespace] = ingressInfo.IngressHost
-
-							configMap := configmaps.CreateConfigMap(namespace.Name, configData)
-							_, err := c.clientset.CoreV1().ConfigMaps(namespace.Name).Create(configMap)
-
-							if err != nil {
-								logrus.Errorf("Config-map not created in namespace:%v, with error %v", namespace.Name, err)
-							}
-
-							logrus.Infof("Configmap created in namespace: %v, with values: %v", namespace.Name, configMap.Data)
-						} else {
-							if configMap.Data == nil {
-								configMap.Data = make(map[string]string)
-							}
-							configMap.Data[newServiceObject.Name+"-"+newServiceObject.Namespace] = ingressInfo.IngressHost
-							_, err := c.clientset.CoreV1().ConfigMaps(namespace.Name).Update(configMap)
-							if err != nil {
-								logrus.Errorf("Can not update config map in namespace: %v, with error: %v", namespace, err)
-							}
-
-							logrus.Infof("Configmap updated in namespace: %v, with values: %v", namespace.Name, configMap.Data)
-						}
-					}
-				}
-			} else {
-				logrus.Infof("Is global false")
-				configMap, err := c.clientset.CoreV1().ConfigMaps(newServiceObject.Namespace).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
-				if err != nil {
-					configData := make(map[string]string)
-					configData[newServiceObject.Name+"-"+newServiceObject.Namespace] = ingressInfo.IngressHost
-
-					configMap := configmaps.CreateConfigMap(newServiceObject.Namespace, configData)
-
-					_, err := c.clientset.CoreV1().ConfigMaps(newServiceObject.Namespace).Create(configMap)
-
-					if err != nil {
-						logrus.Errorf("Config-map not created in namespace:%v, with error %v", newServiceObject.Namespace, err)
-					}
-
-					logrus.Infof("Configmap created in namespace: %v, with values: %v", newServiceObject.Namespace, configMap.Data)
-				} else {
-					logrus.Infof("Config map exists. Update entity, %v", configMap)
-					if configMap.Data == nil {
-						configMap.Data = make(map[string]string)
-					}
-					configMap.Data[newServiceObject.Name+"-"+newServiceObject.Namespace] = ingressInfo.IngressHost
-					_, err := c.clientset.CoreV1().ConfigMaps(newServiceObject.Namespace).Update(configMap)
-					if err != nil {
-						logrus.Errorf("Can not update config map in namespace: %v, with error: %v", newServiceObject.Namespace, err)
-					}
-
-					logrus.Infof("Configmap updated in namespace: %v, with values: %v", newServiceObject.Namespace, configMap.Data)
-				}
+			if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.GLOBALLY {
+				configmaps.PopulateConfigMapGlobally(c.clientset, newServiceObject, ingressInfo.IngressHost)
+			} else if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.LOCALLY {
+				configmaps.PopulateConfigMapLocally(c.clientset, newServiceObject, ingressInfo.IngressHost)
 			}
 		}
 
@@ -262,7 +203,7 @@ func (c *Controller) serviceCreated(obj interface{}) {
 			route := routes.Create(ingressInfo.IngressName, ingressInfo.Namespace, ingressInfo.ForwardAnnotationsMap,
 				ingressInfo.IngressHost, ingressInfo.IngressPath, ingressInfo.ServiceName, ingressInfo.ServicePort)
 
-			result, err := c.osClient.Routes(c.namespace).Create(route)
+			result, err := c.osClient.Routes(ingressInfo.Namespace).Create(route)
 
 			if err != nil {
 				logrus.Errorf("Error while creating Route: %v", err)
@@ -278,7 +219,7 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 	oldServiceObject := oldObj.(*v1.Service)
 
 	if oldServiceObject != newServiceObject {
-		if newServiceObject.ObjectMeta.Labels["expose"] == "true" && oldServiceObject.ObjectMeta.Labels["expose"] == "true" {
+		if newServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "true" && oldServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "true" {
 			oldIngressConfig := structs.Map(c.config)
 			oldIngressConfig = config.ReplaceDefaultConfigWithProvidedServiceConfig(oldIngressConfig, oldServiceObject)
 
@@ -290,35 +231,43 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 				c.serviceDeleted(oldObj)
 				c.serviceCreated(newObj)
 			} else {
-				logrus.Infof("Updating Ingress for service: %v", newServiceObject.Name)
-				ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config, c.namespace)
+				ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config)
 				ingress := ingresses.CreateFromIngressInfo(ingressInfo)
 
 				if ingressInfo.AddTLS == true {
-					logrus.Info("Updated Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
 					ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
+					logrus.Info("Added TLS Info for certmanager")
 				}
 
-				result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Update(ingress)
+				result, err := c.clientset.ExtensionsV1beta1().Ingresses(ingressInfo.Namespace).Update(ingress)
 				if err != nil {
 					logrus.Errorf("Error while Updating Ingress: %v", err)
 				} else {
 					logrus.Infof("Successfully updated an Ingress with name: %v, for service: %v", result.Name, result.Spec.Backend.ServiceName)
 				}
+
+				// Updating exposed services URLs
+				if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.GLOBALLY {
+					configmaps.DeleteFromConfigMapGlobally(c.clientset, oldServiceObject)
+					configmaps.PopulateConfigMapGlobally(c.clientset, newServiceObject, ingressInfo.IngressHost)
+				} else if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.LOCALLY {
+					configmaps.DeleteFromConfigMapLocally(c.clientset, oldServiceObject)
+					configmaps.PopulateConfigMapLocally(c.clientset, newServiceObject, ingressInfo.IngressHost)
+				}
 			}
 		} else {
-			if newServiceObject.ObjectMeta.Labels["expose"] == "false" {
+			if newServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "false" {
 				c.serviceDeleted(oldObj)
 			}
 
-			if newServiceObject.ObjectMeta.Labels["expose"] == "true" {
+			if newServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "true" {
 				c.serviceCreated(newObj)
 			}
 		}
 	} else {
-		ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).List(meta_v1.ListOptions{})
+		ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(oldServiceObject.Namespace).List(meta_v1.ListOptions{})
 		if err != nil {
-			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
+			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", oldServiceObject.Namespace, err)
 		}
 		existingIngress := ingresses.GetFromListMatchingGivenServiceName(ingressList, newServiceObject.Name)
 		if ingresses.IsEmpty(existingIngress) {
@@ -334,13 +283,13 @@ func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
 	// Only delete ingress if the service had expose = true label
 	if serviceToDelete.ObjectMeta.Labels["expose"] == "true" {
 
-		ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).List(meta_v1.ListOptions{})
+		ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(serviceToDelete.Namespace).List(meta_v1.ListOptions{})
 		if err != nil {
-			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
+			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", serviceToDelete.Namespace, err)
 		}
 
 		ingressToRemove := ingresses.GetFromListMatchingGivenServiceName(ingressList, serviceToDelete.Name)
-		err = c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Delete(ingressToRemove.ObjectMeta.Name, &meta_v1.DeleteOptions{})
+		err = c.clientset.ExtensionsV1beta1().Ingresses(serviceToDelete.Namespace).Delete(ingressToRemove.ObjectMeta.Name, &meta_v1.DeleteOptions{})
 		if err != nil {
 			logrus.Warnf("Ingress not deleted with name: %v", ingressToRemove.ObjectMeta.Name)
 		} else {
@@ -348,42 +297,13 @@ func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
 		}
 
 		// Updating xposer config map if it exists
-		ingressInfo := ingresses.CreateIngressInfo(serviceToDelete, c.config, serviceToDelete.Namespace)
+		ingressInfo := ingresses.CreateIngressInfo(serviceToDelete, c.config)
 
-		if ingressInfo.ForwardAnnotationsMap["isGlobal"] == "true" {
-			namespaces, err := c.clientset.CoreV1().Namespaces().List(meta_v1.ListOptions{})
-			if err != nil {
-				logrus.Errorf("Can not fetch all namespaces: %v", err)
-			} else {
-				for _, namespace := range namespaces.Items {
-					configMap, err := c.clientset.CoreV1().ConfigMaps(namespace.Name).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
-					// configmap exist
-					if err == nil {
-						delete(configMap.Data, serviceToDelete.Name+"-"+serviceToDelete.Namespace)
-						_, err := c.clientset.CoreV1().ConfigMaps(namespace.Name).Update(configMap)
-						if err != nil {
-							logrus.Errorf("Can not update config map in namespace: %v, with error: %v", namespace.Name, err)
-						}
+		if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.GLOBALLY {
+			configmaps.DeleteFromConfigMapGlobally(c.clientset, serviceToDelete)
+		} else if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.LOCALLY {
 
-						logrus.Infof("Configmap updated in namespace: %v, with values: %v", namespace.Name, configMap.Data)
-					}
-				}
-			}
-		} else {
-			configMap, err := c.clientset.CoreV1().ConfigMaps(serviceToDelete.Namespace).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
-			// configmap exist
-			if err == nil {
-				logrus.Infof("Configmap before: %v", configMap.Data)
-				logrus.Infof("Index: %v", serviceToDelete.Name+"-"+serviceToDelete.Namespace)
-				delete(configMap.Data, serviceToDelete.Name+"-"+serviceToDelete.Namespace)
-				logrus.Infof("Configmap after: %v", configMap.Data)
-				_, err := c.clientset.CoreV1().ConfigMaps(serviceToDelete.Namespace).Update(configMap)
-				if err != nil {
-					logrus.Errorf("Can not update config map in namespace: %v, with error: %v", serviceToDelete.Namespace, err)
-				}
-
-				logrus.Infof("Configmap updated in namespace: %v, with values: %v", serviceToDelete.Namespace, configMap.Data)
-			}
+			configmaps.DeleteFromConfigMapLocally(c.clientset, serviceToDelete)
 		}
 	}
 }
