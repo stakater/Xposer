@@ -22,7 +22,7 @@ type IngressInfo struct {
 	AddTLS                bool
 }
 
-func CreateIngressInfo(newServiceObject *v1.Service, configuration config.Configuration, namespace string) IngressInfo {
+func CreateIngressInfo(newServiceObject *v1.Service, configuration config.Configuration) IngressInfo {
 	splittedAnnotations := strings.Split(string(newServiceObject.ObjectMeta.Annotations[constants.FORWARD_ANNOTATION]), "\n")
 	forwardAnnotationsMap := make(map[string]string)
 	ingressConfig := structs.Map(configuration)
@@ -40,8 +40,8 @@ func CreateIngressInfo(newServiceObject *v1.Service, configuration config.Config
 	forwardAnnotationsMap = CreateForwardAnnotationsMap(splittedAnnotations)
 
 	// Generates URL Templates to parse Xposer Specific Annotations
-	urlTemplate := templates.CreateUrlTemplate(newServiceObject.Name, namespace, ingressConfig[constants.DOMAIN].(string))
-	nameTemplate := templates.CreateNameTemplate(newServiceObject.Name, namespace)
+	urlTemplate := templates.CreateUrlTemplate(newServiceObject.Name, newServiceObject.Namespace, ingressConfig[constants.DOMAIN].(string))
+	nameTemplate := templates.CreateNameTemplate(newServiceObject.Name, newServiceObject.Namespace)
 
 	parsedURL := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), urlTemplate)
 	parsedURLPath := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_PATH].(string), urlTemplate)
@@ -49,7 +49,7 @@ func CreateIngressInfo(newServiceObject *v1.Service, configuration config.Config
 
 	return IngressInfo{
 		IngressName:           parsedIngressName,
-		Namespace:             namespace,
+		Namespace:             newServiceObject.Namespace,
 		ForwardAnnotationsMap: forwardAnnotationsMap,
 		IngressHost:           parsedURL,
 		IngressPath:           parsedURLPath,

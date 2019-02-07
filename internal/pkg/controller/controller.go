@@ -175,7 +175,7 @@ func (c *Controller) serviceCreated(obj interface{}) {
 
 	// Label for wether to create an ingress for this service or not
 	if newServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "true" {
-		ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config, c.namespace)
+		ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config)
 
 		if c.clusterType == constants.KUBERNETES {
 			ingress := ingresses.CreateFromIngressInfo(ingressInfo)
@@ -185,7 +185,7 @@ func (c *Controller) serviceCreated(obj interface{}) {
 				ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
 			}
 
-			result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Create(ingress)
+			result, err := c.clientset.ExtensionsV1beta1().Ingresses(ingressInfo.Namespace).Create(ingress)
 			if err != nil {
 				logrus.Warnf("Can not create new Ingress: %v", err)
 			} else {
@@ -203,7 +203,7 @@ func (c *Controller) serviceCreated(obj interface{}) {
 			route := routes.Create(ingressInfo.IngressName, ingressInfo.Namespace, ingressInfo.ForwardAnnotationsMap,
 				ingressInfo.IngressHost, ingressInfo.IngressPath, ingressInfo.ServiceName, ingressInfo.ServicePort)
 
-			result, err := c.osClient.Routes(c.namespace).Create(route)
+			result, err := c.osClient.Routes(ingressInfo.Namespace).Create(route)
 
 			if err != nil {
 				logrus.Errorf("Error while creating Route: %v", err)
@@ -231,7 +231,7 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 				c.serviceDeleted(oldObj)
 				c.serviceCreated(newObj)
 			} else {
-				ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config, c.namespace)
+				ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config)
 				ingress := ingresses.CreateFromIngressInfo(ingressInfo)
 
 				if ingressInfo.AddTLS == true {
@@ -239,7 +239,7 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 					logrus.Info("Added TLS Info for certmanager")
 				}
 
-				result, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Update(ingress)
+				result, err := c.clientset.ExtensionsV1beta1().Ingresses(ingressInfo.Namespace).Update(ingress)
 				if err != nil {
 					logrus.Errorf("Error while Updating Ingress: %v", err)
 				} else {
@@ -265,9 +265,9 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 			}
 		}
 	} else {
-		ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).List(meta_v1.ListOptions{})
+		ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(oldServiceObject.Namespace).List(meta_v1.ListOptions{})
 		if err != nil {
-			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
+			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", oldServiceObject.Namespace, err)
 		}
 		existingIngress := ingresses.GetFromListMatchingGivenServiceName(ingressList, newServiceObject.Name)
 		if ingresses.IsEmpty(existingIngress) {
@@ -283,13 +283,13 @@ func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
 	// Only delete ingress if the service had expose = true label
 	if serviceToDelete.ObjectMeta.Labels["expose"] == "true" {
 
-		ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).List(meta_v1.ListOptions{})
+		ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(serviceToDelete.Namespace).List(meta_v1.ListOptions{})
 		if err != nil {
-			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", c.namespace, err)
+			logrus.Errorf("Can not fetch Ingresses in the following namespace: %v, with the following error: %v", serviceToDelete.Namespace, err)
 		}
 
 		ingressToRemove := ingresses.GetFromListMatchingGivenServiceName(ingressList, serviceToDelete.Name)
-		err = c.clientset.ExtensionsV1beta1().Ingresses(c.namespace).Delete(ingressToRemove.ObjectMeta.Name, &meta_v1.DeleteOptions{})
+		err = c.clientset.ExtensionsV1beta1().Ingresses(serviceToDelete.Namespace).Delete(ingressToRemove.ObjectMeta.Name, &meta_v1.DeleteOptions{})
 		if err != nil {
 			logrus.Warnf("Ingress not deleted with name: %v", ingressToRemove.ObjectMeta.Name)
 		} else {
@@ -297,7 +297,7 @@ func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
 		}
 
 		// Updating xposer config map if it exists
-		ingressInfo := ingresses.CreateIngressInfo(serviceToDelete, c.config, serviceToDelete.Namespace)
+		ingressInfo := ingresses.CreateIngressInfo(serviceToDelete, c.config)
 
 		if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.GLOBALLY {
 			configmaps.DeleteFromConfigMapGlobally(c.clientset, serviceToDelete)
