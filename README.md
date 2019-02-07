@@ -1,5 +1,15 @@
 # ![](assets/web/xposer-round-100px.png) Xposer
-[![Get started with Stakater](https://stakater.github.io/README/stakater-github-banner.png)](http://stakater.com/?utm_source=Reloader&utm_medium=github)
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/stakater/xposer?style=flat-square)](https://goreportcard.com/report/github.com/stakater/xposer)
+[![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](http://godoc.org/github.com/stakater/xposer)
+[![Release](https://img.shields.io/github/release/stakater/xposer.svg?style=flat-square)](https://github.com/stakater/xposer/releases/latest)
+[![GitHub tag](https://img.shields.io/github/tag/stakater/xposer.svg?style=flat-square)](https://github.com/stakater/xposer/releases/latest)
+[![Docker Pulls](https://img.shields.io/docker/pulls/stakater/xposer.svg?style=flat-square)](https://hub.docker.com/r/stakater/xposer/)
+[![Docker Stars](https://img.shields.io/docker/stars/stakater/xposer.svg?style=flat-square)](https://hub.docker.com/r/stakater/xposer/)
+[![MicroBadger Size](https://img.shields.io/microbadger/image-size/stakater/xposer.svg?style=flat-square)](https://microbadger.com/images/stakater/xposer)
+[![MicroBadger Layers](https://img.shields.io/microbadger/layers/stakater/xposer.svg?style=flat-square)](https://microbadger.com/images/stakater/xposer)
+[![license](https://img.shields.io/github/license/stakater/xposer.svg?style=flat-square)](LICENSE)
+[![Get started with Stakater](https://stakater.github.io/README/stakater-github-banner.png)](http://stakater.com/?utm_source=Xposer&utm_medium=github)
 
 ## Problem
 We would like to watch for services running in our cluster; and create Ingresses and generate TLS certificates automatically (optional)
