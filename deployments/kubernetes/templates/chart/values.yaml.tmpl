@@ -14,11 +14,11 @@ xposer:
     pullPolicy: IfNotPresent
   configFilePath: /configs/config.yaml
   watchGlobally: false
+  exposeServiceURL: "locally"
   config:
     domain: stakater.com
     ingressURLTemplate: {{ `"{{.Service}}.{{.Namespace}}.{{.Domain}}"` }}
     ingressURLPath: /
     ingressNameTemplate: {{ `"{{.Service}}"` }}
     tls: false
-    exposeServiceURL: "false"
   tolerations: {}

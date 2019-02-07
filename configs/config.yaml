@@ -3,4 +3,3 @@ ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
 ingressURLPath: /
 ingressNameTemplate: "{{.Service}}"
 tls: false
-exposeServiceURL: "false"

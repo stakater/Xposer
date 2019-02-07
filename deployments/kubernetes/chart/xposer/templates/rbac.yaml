@@ -110,7 +110,7 @@ subjects:
     namespace: {{ .Release.Namespace }}
 {{- end }}
 ---
-{{- if eq .Values.xposer.config.exposeServiceURL "globally"}}
+{{- if eq .Values.xposer.exposeServiceURL "globally"}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -157,7 +157,7 @@ subjects:
     namespace: {{ .Release.Namespace }}
 {{- end }}
 ---
-{{- if eq .Values.xposer.config.exposeServiceURL "locally" }}
+{{- if eq .Values.xposer.exposeServiceURL "locally" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

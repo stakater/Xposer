@@ -174,7 +174,7 @@ func (c *Controller) serviceCreated(obj interface{}) {
 	logrus.Info("Service create event for the following service: %v", newServiceObject.Name)
 
 	// Label for wether to create an ingress for this service or not
-	if newServiceObject.ObjectMeta.Labels["expose"] == "true" {
+	if newServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "true" {
 		ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config, c.namespace)
 
 		if c.clusterType == constants.KUBERNETES {
@@ -192,12 +192,10 @@ func (c *Controller) serviceCreated(obj interface{}) {
 				logrus.Infof("Successfully created an Ingress with name: %v", result.Name)
 			}
 
-			if ingressInfo.ForwardAnnotationsMap["exposeServiceURL"] == "true" {
-				if c.config.ExposeServiceUrl == "globally" {
-					configmaps.PopulateConfigMapGlobally(c.clientset, newServiceObject, ingressInfo.IngressHost)
-				} else if c.config.ExposeServiceUrl == "locally" {
-					configmaps.PopulateConfigMapLocally(c.clientset, newServiceObject, ingressInfo.IngressHost)
-				}
+			if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.GLOBALLY {
+				configmaps.PopulateConfigMapGlobally(c.clientset, newServiceObject, ingressInfo.IngressHost)
+			} else if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.LOCALLY {
+				configmaps.PopulateConfigMapLocally(c.clientset, newServiceObject, ingressInfo.IngressHost)
 			}
 		}
 
@@ -221,7 +219,7 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 	oldServiceObject := oldObj.(*v1.Service)
 
 	if oldServiceObject != newServiceObject {
-		if newServiceObject.ObjectMeta.Labels["expose"] == "true" && oldServiceObject.ObjectMeta.Labels["expose"] == "true" {
+		if newServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "true" && oldServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "true" {
 			oldIngressConfig := structs.Map(c.config)
 			oldIngressConfig = config.ReplaceDefaultConfigWithProvidedServiceConfig(oldIngressConfig, oldServiceObject)
 
@@ -249,22 +247,20 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 				}
 
 				// Updating exposed services URLs
-				if ingressInfo.ForwardAnnotationsMap["exposeServiceURL"] == "true" {
-					if c.config.ExposeServiceUrl == "globally" {
-						configmaps.DeleteFromConfigMapGlobally(c.clientset, oldServiceObject)
-						configmaps.PopulateConfigMapGlobally(c.clientset, newServiceObject, ingressInfo.IngressHost)
-					} else if c.config.ExposeServiceUrl == "locally" {
-						configmaps.DeleteFromConfigMapLocally(c.clientset, oldServiceObject)
-						configmaps.PopulateConfigMapLocally(c.clientset, newServiceObject, ingressInfo.IngressHost)
-					}
+				if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.GLOBALLY {
+					configmaps.DeleteFromConfigMapGlobally(c.clientset, oldServiceObject)
+					configmaps.PopulateConfigMapGlobally(c.clientset, newServiceObject, ingressInfo.IngressHost)
+				} else if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.LOCALLY {
+					configmaps.DeleteFromConfigMapLocally(c.clientset, oldServiceObject)
+					configmaps.PopulateConfigMapLocally(c.clientset, newServiceObject, ingressInfo.IngressHost)
 				}
 			}
 		} else {
-			if newServiceObject.ObjectMeta.Labels["expose"] == "false" {
+			if newServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "false" {
 				c.serviceDeleted(oldObj)
 			}
 
-			if newServiceObject.ObjectMeta.Labels["expose"] == "true" {
+			if newServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "true" {
 				c.serviceCreated(newObj)
 			}
 		}
@@ -303,12 +299,11 @@ func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
 		// Updating xposer config map if it exists
 		ingressInfo := ingresses.CreateIngressInfo(serviceToDelete, c.config, serviceToDelete.Namespace)
 
-		if ingressInfo.ForwardAnnotationsMap["exposeServiceURL"] == "true" {
-			if c.config.ExposeServiceUrl == "globally" {
-				configmaps.DeleteFromConfigMapGlobally(c.clientset, serviceToDelete)
-			} else if c.config.ExposeServiceUrl == "locally" {
-				configmaps.DeleteFromConfigMapLocally(c.clientset, serviceToDelete)
-			}
+		if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.GLOBALLY {
+			configmaps.DeleteFromConfigMapGlobally(c.clientset, serviceToDelete)
+		} else if ingressInfo.ForwardAnnotationsMap[constants.EXPOSE_INGRESS_URL] == constants.LOCALLY {
+
+			configmaps.DeleteFromConfigMapLocally(c.clientset, serviceToDelete)
 		}
 	}
 }

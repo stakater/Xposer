@@ -30,7 +30,7 @@ func DeleteFromConfigMapGlobally(clientset kubernetes.Interface, service *v1.Ser
 			configMap, err := clientset.CoreV1().ConfigMaps(namespace.Name).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
 			// configmap exist
 			if err == nil {
-				deleteKeyFromConfigMap(configMap, service, clientset)
+				deleteKeyFromConfigMap(configMap, service, clientset, namespace.Name)
 			}
 		}
 	}
@@ -41,7 +41,7 @@ func DeleteFromConfigMapLocally(clientset kubernetes.Interface, service *v1.Serv
 	configMap, err := clientset.CoreV1().ConfigMaps(service.Namespace).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
 	// configmap exist
 	if err == nil {
-		deleteKeyFromConfigMap(configMap, service, clientset)
+		deleteKeyFromConfigMap(configMap, service, clientset, service.Namespace)
 	}
 }
 
@@ -54,9 +54,9 @@ func PopulateConfigMapGlobally(clientset kubernetes.Interface, newServiceObject 
 		for _, namespace := range namespaces.Items {
 			configMap, err := clientset.CoreV1().ConfigMaps(namespace.Name).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
 			if err != nil {
-				createConfigMap(clientset, newServiceObject, ingressHost)
+				createConfigMap(clientset, newServiceObject, ingressHost, namespace.Name)
 			} else {
-				updateConfigMap(configMap, clientset, newServiceObject, ingressHost)
+				updateConfigMap(configMap, clientset, newServiceObject, ingressHost, namespace.Name)
 			}
 		}
 	}
@@ -66,49 +66,49 @@ func PopulateConfigMapGlobally(clientset kubernetes.Interface, newServiceObject 
 func PopulateConfigMapLocally(clientset kubernetes.Interface, newServiceObject *v1.Service, ingressHost string) {
 	configMap, err := clientset.CoreV1().ConfigMaps(newServiceObject.Namespace).Get(constants.XPOSER_CONFIGMAP, meta_v1.GetOptions{})
 	if err != nil {
-		createConfigMap(clientset, newServiceObject, ingressHost)
+		createConfigMap(clientset, newServiceObject, ingressHost, newServiceObject.Namespace)
 	} else {
-		updateConfigMap(configMap, clientset, newServiceObject, ingressHost)
+		updateConfigMap(configMap, clientset, newServiceObject, ingressHost, newServiceObject.Namespace)
 	}
 }
 
 // createConfigMap uses kubernetes client to create an actual config-map in cluster
-func createConfigMap(clientset kubernetes.Interface, newServiceObject *v1.Service, ingressHost string) {
+func createConfigMap(clientset kubernetes.Interface, newServiceObject *v1.Service, ingressHost string, namespace string) {
 	configData := make(map[string]string)
 	configData[newServiceObject.Name+"-"+newServiceObject.Namespace] = ingressHost
 
 	configMap := CreateConfigMapObject(newServiceObject.Namespace, configData)
 
-	_, err := clientset.CoreV1().ConfigMaps(newServiceObject.Namespace).Create(configMap)
+	_, err := clientset.CoreV1().ConfigMaps(namespace).Create(configMap)
 
 	if err != nil {
-		logrus.Errorf("Config-map not created in namespace:%v, with error %v", newServiceObject.Namespace, err)
+		logrus.Errorf("Config-map not created in namespace:%v, with error %v", namespace, err)
 	}
 
-	logrus.Infof("Configmap created in namespace: %v", newServiceObject.Namespace)
+	logrus.Infof("Configmap created in namespace: %v", namespace)
 }
 
 // updateConfigMap uses kubernetes client to update an actual config-map in cluster
-func updateConfigMap(configMap *v1.ConfigMap, clientset kubernetes.Interface, newServiceObject *v1.Service, ingressHost string) {
+func updateConfigMap(configMap *v1.ConfigMap, clientset kubernetes.Interface, newServiceObject *v1.Service, ingressHost string, namespace string) {
 	if configMap.Data == nil {
 		configMap.Data = make(map[string]string)
 	}
 	configMap.Data[newServiceObject.Name+"-"+newServiceObject.Namespace] = ingressHost
-	_, err := clientset.CoreV1().ConfigMaps(newServiceObject.Namespace).Update(configMap)
+	_, err := clientset.CoreV1().ConfigMaps(namespace).Update(configMap)
 	if err != nil {
-		logrus.Errorf("Can not update config map in namespace: %v, with error: %v", newServiceObject.Namespace, err)
+		logrus.Errorf("Can not update config map in namespace: %v, with error: %v", namespace, err)
 	}
 
-	logrus.Infof("Configmap updated in namespace: %v", newServiceObject.Namespace)
+	logrus.Infof("Configmap updated in namespace: %v", namespace)
 }
 
 // deleteKeyFromConfigMap uses kubernetes client to delete a key from xposer config-map in cluster
-func deleteKeyFromConfigMap(configMap *v1.ConfigMap, service *v1.Service, clientset kubernetes.Interface) {
+func deleteKeyFromConfigMap(configMap *v1.ConfigMap, service *v1.Service, clientset kubernetes.Interface, namespace string) {
 	delete(configMap.Data, service.Name+"-"+service.Namespace)
-	_, err := clientset.CoreV1().ConfigMaps(service.Namespace).Update(configMap)
+	_, err := clientset.CoreV1().ConfigMaps(namespace).Update(configMap)
 	if err != nil {
-		logrus.Errorf("Can not update config map in namespace: %v, with error: %v", service.Namespace, err)
+		logrus.Errorf("Can not update config map in namespace: %v, with error: %v", namespace, err)
 	}
 
-	logrus.Infof("Configmap updated in namespace: %v", service.Namespace)
+	logrus.Infof("Configmap updated in namespace: %v", namespace)
 }
