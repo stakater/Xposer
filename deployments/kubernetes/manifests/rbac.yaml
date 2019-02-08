@@ -7,8 +7,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.13
-    chart: "xposer-v0.0.13"
+    version: v0.0.14
+    chart: "xposer-v0.0.14"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -20,8 +20,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.13
-    chart: "xposer-v0.0.13"
+    version: v0.0.14
+    chart: "xposer-v0.0.14"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role
@@ -58,8 +58,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.13
-    chart: "xposer-v0.0.13"
+    version: v0.0.14
+    chart: "xposer-v0.0.14"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role-binding
@@ -81,8 +81,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.13
-    chart: "xposer-v0.0.13"
+    version: v0.0.14
+    chart: "xposer-v0.0.14"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-configmap-role-default
@@ -115,15 +115,15 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.13
-    chart: "xposer-v0.0.13"
+    version: v0.0.14
+    chart: "xposer-v0.0.14"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-configmap-role-binding-default
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: xposer-configmap-role
+  name: xposer-configmap-role-default
 subjects:
   - kind: ServiceAccount
     name: xposer
