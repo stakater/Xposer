@@ -171,10 +171,10 @@ func (c *Controller) takeAction(event Event) error {
 
 func (c *Controller) serviceCreated(obj interface{}) {
 	newServiceObject := obj.(*v1.Service)
-	logrus.Info("Service create event for the following service: %v", newServiceObject.Name)
 
 	// Label for wether to create an ingress for this service or not
 	if newServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "true" {
+		logrus.Info("Service create event for the following service: %v", newServiceObject.Name)
 		ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config)
 
 		if c.clusterType == constants.KUBERNETES {
@@ -278,10 +278,10 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 
 func (c *Controller) serviceDeleted(deletedServiceObject interface{}) {
 	serviceToDelete := deletedServiceObject.(*v1.Service)
-	logrus.Info("Service delete event for the following service: %v", serviceToDelete.Name)
 
 	// Only delete ingress if the service had expose = true label
 	if serviceToDelete.ObjectMeta.Labels["expose"] == "true" {
+		logrus.Info("Service delete event for the following service: %v", serviceToDelete.Name)
 
 		ingressList, err := c.clientset.ExtensionsV1beta1().Ingresses(serviceToDelete.Namespace).List(meta_v1.ListOptions{})
 		if err != nil {
