@@ -150,7 +150,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ template "xposer-name" . }}-configmap-role
+  name: {{ template "xposer-name" . }}-configmap-role-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: {{ template "xposer-name" . }}
@@ -197,7 +197,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ template "xposer-name" . }}-configmap-role
+  name: {{ template "xposer-name" . }}-configmap-role-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: {{ template "xposer-name" . }}
