@@ -7,8 +7,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.11
-    chart: "xposer-v0.0.11"
+    version: v0.0.14
+    chart: "xposer-v0.0.14"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -20,8 +20,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.11
-    chart: "xposer-v0.0.11"
+    version: v0.0.14
+    chart: "xposer-v0.0.14"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role
@@ -58,8 +58,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.11
-    chart: "xposer-v0.0.11"
+    version: v0.0.14
+    chart: "xposer-v0.0.14"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role-binding
@@ -67,6 +67,63 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: xposer-role
+subjects:
+  - kind: ServiceAccount
+    name: xposer
+    namespace: default
+---
+---
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels: 
+    app: xposer
+    group: com.stakater.platform
+    provider: stakater
+    version: v0.0.14
+    chart: "xposer-v0.0.14"
+    release: "RELEASE-NAME"
+    heritage: "Tiller"
+  name: xposer-configmap-role-default
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - list
+      - get
+      - create
+      - update
+      - patch
+      - watch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - list
+      - get
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels: 
+    app: xposer
+    group: com.stakater.platform
+    provider: stakater
+    version: v0.0.14
+    chart: "xposer-v0.0.14"
+    release: "RELEASE-NAME"
+    heritage: "Tiller"
+  name: xposer-configmap-role-binding-default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: xposer-configmap-role-default
 subjects:
   - kind: ServiceAccount
     name: xposer

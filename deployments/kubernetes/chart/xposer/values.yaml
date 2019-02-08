@@ -1,4 +1,4 @@
-# Generated from deployments/kubernetes/templates/chart/values.yaml.tmpl
+  # Generated from deployments/kubernetes/templates/chart/values.yaml.tmpl
 
 kubernetes:
   host: https://kubernetes.default
@@ -7,10 +7,10 @@ xposer:
   labels:
     provider: stakater
     group: com.stakater.platform
-    version: v0.0.11
+    version: v0.0.14
   image:
     name: stakater/xposer
-    tag: "v0.0.11"
+    tag: "v0.0.14"
     pullPolicy: IfNotPresent
   configFilePath: /configs/config.yaml
   watchGlobally: false
