@@ -1,5 +1,5 @@
 #!/usr/bin/groovy
-@Library('github.com/stakater/fabric8-pipeline-library@v2.10.8')
+@Library('github.com/stakater/stakater-pipeline-library@v2.11.0')
 
 def dummy
 
