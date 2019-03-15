@@ -242,6 +242,22 @@ The above example use cluster issuer `certmanager.k8s.io/cluster-issuer:` annota
 
 The second annotation `config.xposer.stakater.com/TLS:` tells Xposer to add TLS information to the Ingress so it can communicate with the certmanager to generate certificates
 
+#### Default Backend
+
+Ingresses can contain a default backend, that covers the case if none of the
+rules in the ```rules```-section match. As this causes issue with some ingress
+controllers, you can disable this in your configmap or by annotation:
+
+```yaml
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    expose: 'true'
+  annotations:
+    config.xposer.stakater.com/DefaultBackend: "false"
+```
+
 ### Openshift
 
 Support for openshift routes will be added soon
