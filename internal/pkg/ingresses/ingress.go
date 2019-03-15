@@ -18,10 +18,6 @@ func CreateFromIngressInfo(ingresInfo IngressInfo) *v1beta1.Ingress {
 			Annotations: ingresInfo.ForwardAnnotationsMap,
 		},
 		Spec: v1beta1.IngressSpec{
-			Backend: &v1beta1.IngressBackend{
-				ServiceName: ingresInfo.ServiceName,
-				ServicePort: intstr.FromInt(ingresInfo.ServicePort),
-			},
 			Rules: []v1beta1.IngressRule{
 				v1beta1.IngressRule{
 					Host: ingresInfo.IngressHost,
@@ -66,6 +62,13 @@ func GetFromListMatchingGivenServiceName(ingressList *v1beta1.IngressList, servi
 	return matchedIngress
 }
 
+func AddDefaultBackend(ingress *v1beta1.Ingress, serviceName string, servicePort int) {
+	ingress.Spec.Backend = &v1beta1.IngressBackend{
+		ServiceName: serviceName,
+		ServicePort: intstr.FromInt(servicePort),
+	}
+}
+
 func AddTLSInfo(ingress *v1beta1.Ingress, ingressName string, ingressHost string) {
 	ingress.Spec.TLS = []v1beta1.IngressTLS{
 		v1beta1.IngressTLS{
@@ -73,6 +76,26 @@ func AddTLSInfo(ingress *v1beta1.Ingress, ingressName string, ingressHost string
 			SecretName: ingressName + constants.CERT,
 		},
 	}
+}
+
+func ShouldAddDefaultBackend(ingressConfig map[string]interface{}, defaultDefaultBackend bool) bool {
+	switch defaultBackendSwitch := ingressConfig[constants.DEFAULTBACKEND].(type) {
+	case string:
+		defaultBackend, err := strconv.ParseBool(defaultBackendSwitch)
+		if err != nil {
+			logrus.Warnf("The value of Default Backend annotation is wrong. It should only be true or false. Reverting to default value: %v", defaultDefaultBackend)
+			ingressConfig[constants.DEFAULTBACKEND] = defaultDefaultBackend
+		} else {
+			ingressConfig[constants.DEFAULTBACKEND] = defaultBackend
+		}
+		break
+	}
+
+	if ingressConfig[constants.DEFAULTBACKEND] == true {
+		return true
+	}
+
+	return false
 }
 
 func ShouldAddTLS(ingressConfig map[string]interface{}, defaultTLS bool) bool {

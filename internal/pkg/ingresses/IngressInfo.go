@@ -20,6 +20,7 @@ type IngressInfo struct {
 	ServiceName           string
 	ServicePort           int
 	AddTLS                bool
+	AddDefaultBackend     bool
 }
 
 func CreateIngressInfo(newServiceObject *v1.Service, configuration config.Configuration) IngressInfo {
@@ -56,5 +57,6 @@ func CreateIngressInfo(newServiceObject *v1.Service, configuration config.Config
 		ServiceName:           newServiceObject.Name,
 		ServicePort:           services.GetServicePortFromEvent(newServiceObject),
 		AddTLS:                ShouldAddTLS(ingressConfig, configuration.TLS),
+		AddDefaultBackend:     ShouldAddDefaultBackend(ingressConfig, configuration.DefaultBackend),
 	}
 }

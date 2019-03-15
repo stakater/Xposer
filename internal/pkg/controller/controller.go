@@ -184,6 +184,10 @@ func (c *Controller) serviceCreated(obj interface{}) {
 				logrus.Info("Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
 				ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
 			}
+			if ingressInfo.AddDefaultBackend == true {
+				logrus.Info("Service is to contain a default backend, so creating one")
+				ingresses.AddDefaultBackend(ingress, ingressInfo.ServiceName, ingressInfo.ServicePort)
+			}
 
 			result, err := c.clientset.ExtensionsV1beta1().Ingresses(ingressInfo.Namespace).Create(ingress)
 			if err != nil {

@@ -21,4 +21,5 @@ xposer:
     ingressURLPath: /
     ingressNameTemplate: "{{.Service}}"
     tls: false
+    defaultBackend: true
   tolerations: {}

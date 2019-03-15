@@ -129,6 +129,7 @@ ingressURLTemplate: "{{.Service}}.{{.Namespace}}.{{.Domain}}"
 ingressURLPath: /
 ingressNameTemplate: "{{.Service}}"
 tls: false
+defaultBackend: true
 ```
 
 Each property is explained below in details

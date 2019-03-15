@@ -19,4 +19,5 @@ data:
     ingressURLPath: /
     ingressNameTemplate: "{{.Service}}"
     tls: false
+    defaultBackend: true
   default-url : default.com 
