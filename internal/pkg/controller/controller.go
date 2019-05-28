@@ -12,6 +12,7 @@ import (
 	"github.com/stakater/Xposer/internal/pkg/constants"
 	"github.com/stakater/Xposer/internal/pkg/ingresses"
 	"github.com/stakater/Xposer/internal/pkg/routes"
+	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"

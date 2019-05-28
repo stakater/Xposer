@@ -8,6 +8,7 @@ import (
 	"github.com/stakater/Xposer/internal/pkg/constants"
 	"github.com/stakater/Xposer/internal/pkg/services"
 	"github.com/stakater/Xposer/internal/pkg/templates"
+	v1 "k8s.io/api/core/v1"
 )
 
 type IngressInfo struct {
