@@ -9,8 +9,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.16
-    chart: "xposer-v0.0.16"
+    version: v0.0.17
+    chart: "xposer-v0.0.17"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -37,7 +37,7 @@ spec:
               fieldPath: metadata.namespace
         - name: CONFIG_FILE_PATH
           value: /configs/config.yaml
-        image: "stakater/xposer:v0.0.16"
+        image: "stakater/xposer:v0.0.17"
         imagePullPolicy: IfNotPresent
         name: xposer
         volumeMounts:
@@ -58,8 +58,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.16
-    chart: "xposer-v0.0.16"
+    version: v0.0.17
+    chart: "xposer-v0.0.17"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -71,8 +71,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.16
-    chart: "xposer-v0.0.16"
+    version: v0.0.17
+    chart: "xposer-v0.0.17"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role
@@ -109,8 +109,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.16
-    chart: "xposer-v0.0.16"
+    version: v0.0.17
+    chart: "xposer-v0.0.17"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role-binding
@@ -132,8 +132,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.16
-    chart: "xposer-v0.0.16"
+    version: v0.0.17
+    chart: "xposer-v0.0.17"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-configmap-role-default
@@ -166,8 +166,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.16
-    chart: "xposer-v0.0.16"
+    version: v0.0.17
+    chart: "xposer-v0.0.17"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-configmap-role-binding-default
@@ -189,8 +189,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.16
-    chart: "xposer-v0.0.16"
+    version: v0.0.17
+    chart: "xposer-v0.0.17"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -201,5 +201,5 @@ data:
     ingressURLPath: /
     ingressNameTemplate: "{{.Service}}"
     tls: false
-    tlsSecretNameTemplate: "NO_SECRET"
+    tlsSecretNameTemplate: NO_SECRET
   default-url : default.com 

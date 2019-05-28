@@ -7,8 +7,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.16
-    chart: "xposer-v0.0.16"
+    version: v0.0.17
+    chart: "xposer-v0.0.17"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -19,5 +19,5 @@ data:
     ingressURLPath: /
     ingressNameTemplate: "{{.Service}}"
     tls: false
-    tlsSecretNameTemplate: "NO_SECRET"
+    tlsSecretNameTemplate: NO_SECRET
   default-url : default.com 
