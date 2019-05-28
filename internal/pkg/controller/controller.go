@@ -181,9 +181,9 @@ func (c *Controller) serviceCreated(obj interface{}) {
 			ingress := ingresses.CreateFromIngressInfo(ingressInfo)
 			// Adds TLS for cert-manager if specified via annotations
 			if ingressInfo.AddTLS == true {
-				if ingressInfo.TLSSecretNameTemplate != "NO_SECRET" {
+				if ingressInfo.SecretName != "NO_SECRET" {
 					logrus.Info("Service contain TLS annotation,Generating from template")
-					ingresses.AddTLSInfoTemplate(ingress, ingressInfo.TLSSecretNameTemplate, ingressInfo.IngressHost)
+					ingresses.AddTLSInfoTemplate(ingress, ingressInfo.SecretName, ingressInfo.IngressHost)
 				} else {
 					logrus.Info("Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
 					ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
@@ -240,9 +240,9 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 				ingress := ingresses.CreateFromIngressInfo(ingressInfo)
 
 				if ingressInfo.AddTLS == true {
-					if ingressInfo.TLSSecretNameTemplate != "NO_SECRET" {
+					if ingressInfo.SecretName != "NO_SECRET" {
 						logrus.Info("Service contain TLS annotation,Generating from template")
-						ingresses.AddTLSInfoTemplate(ingress, ingressInfo.TLSSecretNameTemplate, ingressInfo.IngressHost)
+						ingresses.AddTLSInfoTemplate(ingress, ingressInfo.SecretName, ingressInfo.IngressHost)
 					} else {
 						ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
 						logrus.Info("Added TLS Info for certmanager")
