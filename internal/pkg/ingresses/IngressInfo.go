@@ -8,7 +8,6 @@ import (
 	"github.com/stakater/Xposer/internal/pkg/constants"
 	"github.com/stakater/Xposer/internal/pkg/services"
 	"github.com/stakater/Xposer/internal/pkg/templates"
-	"k8s.io/api/core/v1"
 )
 
 type IngressInfo struct {
@@ -20,6 +19,7 @@ type IngressInfo struct {
 	ServiceName           string
 	ServicePort           int
 	AddTLS                bool
+	SecretName            string
 }
 
 func CreateIngressInfo(newServiceObject *v1.Service, configuration config.Configuration) IngressInfo {
@@ -43,9 +43,13 @@ func CreateIngressInfo(newServiceObject *v1.Service, configuration config.Config
 	urlTemplate := templates.CreateUrlTemplate(newServiceObject.Name, newServiceObject.Namespace, ingressConfig[constants.DOMAIN].(string))
 	nameTemplate := templates.CreateNameTemplate(newServiceObject.Name, newServiceObject.Namespace)
 
+	// Generate Secret Template to create Secrets
+	secretTemplate := templates.CreateSecretTemplate(newServiceObject.Name, newServiceObject.Namespace)
+
 	parsedURL := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_TEMPLATE].(string), urlTemplate)
 	parsedURLPath := templates.ParseIngressURLOrPathTemplate(ingressConfig[constants.INGRESS_URL_PATH].(string), urlTemplate)
 	parsedIngressName := templates.ParseIngressNameTemplate(ingressConfig[constants.INGRESS_NAME_TEMPLATE].(string), nameTemplate)
+	parsedSecret := templates.ParseIngressSecretTemplate(ingressConfig[constants.SECRET_NAME_TEMPLATE].(string), secretTemplate)
 
 	return IngressInfo{
 		IngressName:           parsedIngressName,
@@ -56,5 +60,6 @@ func CreateIngressInfo(newServiceObject *v1.Service, configuration config.Config
 		ServiceName:           newServiceObject.Name,
 		ServicePort:           services.GetServicePortFromEvent(newServiceObject),
 		AddTLS:                ShouldAddTLS(ingressConfig, configuration.TLS),
+		SecretName:            parsedSecret,
 	}
 }

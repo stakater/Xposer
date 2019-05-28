@@ -12,7 +12,6 @@ import (
 	"github.com/stakater/Xposer/internal/pkg/constants"
 	"github.com/stakater/Xposer/internal/pkg/ingresses"
 	"github.com/stakater/Xposer/internal/pkg/routes"
-	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -181,8 +180,13 @@ func (c *Controller) serviceCreated(obj interface{}) {
 			ingress := ingresses.CreateFromIngressInfo(ingressInfo)
 			// Adds TLS for cert-manager if specified via annotations
 			if ingressInfo.AddTLS == true {
-				logrus.Info("Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
-				ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
+				if ingressInfo.TLSSecretNameTemplate != "NO_SECRET" {
+					logrus.Info("Service contain TLS annotation,Generating from template")
+					ingresses.AddTLSInfoTemplate(ingress, ingressInfo.TLSSecretNameTemplate, ingressInfo.IngressHost)
+				} else {
+					logrus.Info("Service contain TLS annotation, so automatically generating a TLS certificate via certmanager")
+					ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
+				}
 			}
 
 			result, err := c.clientset.ExtensionsV1beta1().Ingresses(ingressInfo.Namespace).Create(ingress)
@@ -235,8 +239,13 @@ func (c *Controller) serviceUpdated(oldObj interface{}, newObj interface{}) {
 				ingress := ingresses.CreateFromIngressInfo(ingressInfo)
 
 				if ingressInfo.AddTLS == true {
-					ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
-					logrus.Info("Added TLS Info for certmanager")
+					if ingressInfo.TLSSecretNameTemplate != "NO_SECRET" {
+						logrus.Info("Service contain TLS annotation,Generating from template")
+						ingresses.AddTLSInfoTemplate(ingress, ingressInfo.TLSSecretNameTemplate, ingressInfo.IngressHost)
+					} else {
+						ingresses.AddTLSInfo(ingress, ingressInfo.IngressName, ingressInfo.IngressHost)
+						logrus.Info("Added TLS Info for certmanager")
+					}
 				}
 
 				result, err := c.clientset.ExtensionsV1beta1().Ingresses(ingressInfo.Namespace).Update(ingress)
