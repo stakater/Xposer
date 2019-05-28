@@ -12,4 +12,5 @@ data:
     ingressURLPath: {{ .Values.xposer.config.ingressURLPath }}
     ingressNameTemplate: {{ .Values.xposer.config.ingressNameTemplate | quote }}
     tls: {{ .Values.xposer.config.tls }}
+    tlsSecretNameTemplate: {{ .Values.xposer.config.tlsSecretNameTemplate}}
   default-url : default.com 

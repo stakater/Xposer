@@ -10,11 +10,12 @@ import (
 )
 
 type Configuration struct {
-	Domain              string `yaml:"domain"`
-	IngressURLTemplate  string `yaml:"ingressURLTemplate"`
-	IngressURLPath      string `yaml:"ingressURLPath"`
-	IngressNameTemplate string `yaml:"ingressNameTemplate"`
-	TLS                 bool   `yaml:"tls"`
+	Domain                string `yaml:"domain"`
+	IngressURLTemplate    string `yaml:"ingressURLTemplate"`
+	IngressURLPath        string `yaml:"ingressURLPath"`
+	IngressNameTemplate   string `yaml:"ingressNameTemplate"`
+	TLS                   bool   `yaml:"tls"`
+	TLSSecretNameTemplate string `yaml:"tlsSecretNameTemplate"`
 }
 
 //ReadConfig function that reads the yaml file

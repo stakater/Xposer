@@ -74,6 +74,14 @@ func AddTLSInfo(ingress *v1beta1.Ingress, ingressName string, ingressHost string
 		},
 	}
 }
+func AddTLSInfoTemplate(ingress *v1beta1.Ingress, secretName string, ingressHost string) {
+	ingress.Spec.TLS = []v1beta1.IngressTLS{
+		v1beta1.IngressTLS{
+			Hosts:      []string{ingressHost},
+			SecretName: secretName,
+		},
+	}
+}
 
 func ShouldAddTLS(ingressConfig map[string]interface{}, defaultTLS bool) bool {
 	switch tlsSwitch := ingressConfig[constants.TLS].(type) {

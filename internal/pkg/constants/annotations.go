@@ -7,4 +7,5 @@ const (
 	INGRESS_URL_TEMPLATE             = "IngressURLTemplate"
 	INGRESS_NAME_TEMPLATE            = "IngressNameTemplate"
 	TLS                              = "TLS"
+	SECRET_NAME_TEMPLATE             = "TLSSecretNameTemplate"
 )
