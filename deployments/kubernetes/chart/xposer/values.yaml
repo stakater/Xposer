@@ -7,10 +7,10 @@ xposer:
   labels:
     provider: stakater
     group: com.stakater.platform
-    version: v0.0.15
+    version: v0.0.18
   image:
     name: stakater/xposer
-    tag: "v0.0.15"
+    tag: "v0.0.18"
     pullPolicy: IfNotPresent
   configFilePath: /configs/config.yaml
   watchGlobally: false
@@ -21,4 +21,5 @@ xposer:
     ingressURLPath: /
     ingressNameTemplate: "{{.Service}}"
     tls: false
+    tlsSecretNameTemplate: "NO_SECRET"
   tolerations: {}

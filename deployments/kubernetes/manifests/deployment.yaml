@@ -9,8 +9,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.15
-    chart: "xposer-v0.0.15"
+    version: v0.0.18
+    chart: "xposer-v0.0.18"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -37,7 +37,7 @@ spec:
               fieldPath: metadata.namespace
         - name: CONFIG_FILE_PATH
           value: /configs/config.yaml
-        image: "stakater/xposer:v0.0.15"
+        image: "stakater/xposer:v0.0.18"
         imagePullPolicy: IfNotPresent
         name: xposer
         volumeMounts:
