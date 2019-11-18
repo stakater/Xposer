@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/fatih/structs"
-	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
+	routesClient "github.com/openshift/client-go/route/clientset/versioned"
 	"github.com/sirupsen/logrus"
 	config "github.com/stakater/Xposer/internal/pkg/config"
 	"github.com/stakater/Xposer/internal/pkg/configmaps"
@@ -33,7 +33,7 @@ type Event struct {
 // Controller for checking items
 type Controller struct {
 	clientset   kubernetes.Interface
-	osClient    *routeClient.RouteV1Client
+	routesClient    routesClient.Interface
 	clusterType string
 	namespace   string
 	indexer     cache.Indexer
@@ -43,10 +43,10 @@ type Controller struct {
 }
 
 // NewController A Constructor for the Controller to initialize the controller
-func NewController(clientset kubernetes.Interface, osClient *routeClient.RouteV1Client, conf config.Configuration, clusterType string, namespace string) *Controller {
+func NewController(clientset kubernetes.Interface, routesClient routesClient.Interface, conf config.Configuration, clusterType string, namespace string) *Controller {
 	controller := &Controller{
 		clientset:   clientset,
-		osClient:    osClient,
+		routesClient:    routesClient,
 		config:      conf,
 		clusterType: clusterType,
 		namespace:   namespace,
@@ -174,7 +174,7 @@ func (c *Controller) serviceCreated(obj interface{}) {
 
 	// Label for wether to create an ingress for this service or not
 	if newServiceObject.ObjectMeta.Labels[constants.EXPOSE] == "true" {
-		logrus.Info("Service create event for the following service: %v", newServiceObject.Name)
+		logrus.Infof("Service create event for the following service: %v", newServiceObject.Name)
 		ingressInfo := ingresses.CreateIngressInfo(newServiceObject, c.config)
 
 		if c.clusterType == constants.KUBERNETES {
@@ -208,7 +208,7 @@ func (c *Controller) serviceCreated(obj interface{}) {
 			route := routes.Create(ingressInfo.IngressName, ingressInfo.Namespace, ingressInfo.ForwardAnnotationsMap,
 				ingressInfo.IngressHost, ingressInfo.IngressPath, ingressInfo.ServiceName, ingressInfo.ServicePort)
 
-			result, err := c.osClient.Routes(ingressInfo.Namespace).Create(route)
+			result, err := c.routesClient.RouteV1().Routes(ingressInfo.Namespace).Create(route)
 
 			if err != nil {
 				logrus.Errorf("Error while creating Route: %v", err)
