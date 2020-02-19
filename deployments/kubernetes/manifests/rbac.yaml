@@ -7,8 +7,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.19
-    chart: "xposer-v0.0.19"
+    version: v0.0.20
+    chart: "xposer-v0.0.20"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer
@@ -20,8 +20,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.19
-    chart: "xposer-v0.0.19"
+    version: v0.0.20
+    chart: "xposer-v0.0.20"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role
@@ -58,8 +58,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.19
-    chart: "xposer-v0.0.19"
+    version: v0.0.20
+    chart: "xposer-v0.0.20"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-role-binding
@@ -81,8 +81,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.19
-    chart: "xposer-v0.0.19"
+    version: v0.0.20
+    chart: "xposer-v0.0.20"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-configmap-role-default
@@ -115,8 +115,8 @@ metadata:
     app: xposer
     group: com.stakater.platform
     provider: stakater
-    version: v0.0.19
-    chart: "xposer-v0.0.19"
+    version: v0.0.20
+    chart: "xposer-v0.0.20"
     release: "RELEASE-NAME"
     heritage: "Tiller"
   name: xposer-configmap-role-binding-default
