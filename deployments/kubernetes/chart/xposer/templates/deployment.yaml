@@ -35,6 +35,10 @@ spec:
         image: "{{ .Values.xposer.image.name }}:{{ .Values.xposer.image.tag }}"
         imagePullPolicy: {{ .Values.xposer.image.pullPolicy }}
         name: {{ template "xposer-name" . }}
+        {{ if .Values.xposer.resources }}
+        resources:
+{{ toYaml .Values.xposer.resources | indent 10 }}
+        {{ end }}
         volumeMounts:
         - mountPath: /configs
           name: config-volume
